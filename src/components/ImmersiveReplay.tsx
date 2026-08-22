@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Pause, Sparkles, Volume2 } from 'lucide-reac
 import type { Attachment, Memory } from '../types'
 import { isDesktop, nativeBridge } from '../services/nativeBridge'
 import { playMemoryChime } from '../services/sound'
-import { emotionLabel, useI18n } from '../i18n'
+import { emotionLabel, memoryEmotionValues, useI18n } from '../i18n'
 
 function ImmersiveMedia({ attachment, onEnded, loadingLabel }: { attachment: Attachment; onEnded: () => void; loadingLabel: string }) {
   const [src, setSrc] = useState(attachment.url)
@@ -48,7 +48,7 @@ export function ImmersiveReplay({ memory, onClose }: { memory: Memory; onClose: 
         <div className="immersive-halo" />
         {fragments.length ? <ImmersiveMedia key={fragments[index].id} attachment={fragments[index]} loadingLabel={t('正在凝聚这一片记忆…', 'Gathering this fragment…')} onEnded={() => move(1)} /> : <div className="memory-light-core"><Sparkles /></div>}
       </div>
-      <div className="immersive-copy"><span>{emotionLabel(memory.emotion, language)} · {memory.title}</span><p>{memory.content}</p></div>
+      <div className="immersive-copy"><span>{memoryEmotionValues(memory).map(emotion => emotionLabel(emotion, language)).join(' · ')}　/　{memory.title}</span><p>{memory.content}</p></div>
       {fragments.length > 1 && <nav><button onClick={() => move(-1)}><ChevronLeft /></button><div>{fragments.map((item, i) => <button aria-label={t(`查看片段 ${i + 1}`, `View fragment ${i + 1}`)} className={i === index ? 'active' : ''} onClick={() => setIndex(i)} key={item.id} />)}</div><button onClick={() => move(1)}><ChevronRight /></button></nav>}
     </main>
     <footer>{t('放慢呼吸，让声音、影像与文字从水中经过', 'Breathe slowly; let sound, image and words pass through the water')}</footer>

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Pensieve",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.yihe.pensieve",
   "build": {
     "frontendDist": "../dist",
@@ -17,10 +17,10 @@
         "height": 820,
         "minWidth": 960,
         "minHeight": 680,
-        "resizable": true,
+        "resizable": false,
         "decorations": false,
         "shadow": true,
-        "fullscreen": false
+        "fullscreen": true
       }
     ],
     "security": {

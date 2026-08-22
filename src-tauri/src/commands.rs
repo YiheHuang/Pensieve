@@ -31,6 +31,9 @@ pub fn unlock_vault(pin: String, state: State<AppState>) -> CmdResult<()> {
     for status in ["active", "archived", "trashed"] {
         state.vault.list(status).map_err(err)?;
     }
+    // Earlier preview builds moved failed extraction drafts to the recycle bin
+    // when returning to edit. Bring those drafts back on the first unlock.
+    state.vault.restore_failed_extractions().map_err(err)?;
     Ok(())
 }
 #[tauri::command]
@@ -53,6 +56,10 @@ pub fn save_memory(mut memory: Memory, state: State<AppState>) -> CmdResult<Memo
     memory.normalize_metadata();
     state.vault.save(&memory).map_err(err)?;
     Ok(memory)
+}
+#[tauri::command]
+pub fn delete_memory_permanently(id: String, state: State<AppState>) -> CmdResult<()> {
+    state.vault.delete_memory_permanently(&id).map_err(err)
 }
 #[tauri::command]
 pub async fn search_memories(
@@ -132,6 +139,10 @@ pub fn get_attachment_data(encrypted_path: String, state: State<AppState>) -> Cm
         .map_err(err)
 }
 #[tauri::command]
+pub fn delete_attachment(encrypted_path: String, state: State<AppState>) -> CmdResult<()> {
+    state.vault.delete_attachment(&encrypted_path).map_err(err)
+}
+#[tauri::command]
 pub fn configure_ai(
     config: AiProviderConfig,
     api_key: Option<String>,
@@ -196,16 +207,18 @@ pub async fn analyze_memory(id: String, state: State<'_, AppState>) -> CmdResult
         .analyze_memory(&analysis_input, &images)
         .await
         .map_err(err)?;
-    let embedding = provider
-        .embed(&format!(
-            "{}\n{}\n{}",
-            analysis.title, memory.content, analysis.summary
-        ))
-        .await
-        .map_err(err)?;
     memory.title = analysis.title;
-    memory.summary = analysis.summary;
-    memory.emotion = analysis.emotion;
+    memory.summary = memory.content.clone();
+    if let Some(occurred_at) = analysis
+        .occurred_at
+        .filter(|value| chrono::DateTime::parse_from_rfc3339(value).is_ok())
+    {
+        memory.occurred_at = occurred_at;
+    }
+    memory.emotion = analysis.primary_emotion.clone();
+    memory.emotions = std::iter::once(analysis.primary_emotion)
+        .chain(analysis.secondary_emotions)
+        .collect();
     memory.ai_status = "succeeded".into();
     let mut tags = Vec::new();
     for (label, kind) in analysis
@@ -226,9 +239,5 @@ pub async fn analyze_memory(id: String, state: State<'_, AppState>) -> CmdResult
     memory.tags = tags;
     memory.normalize_metadata();
     state.vault.save(&memory).map_err(err)?;
-    state
-        .vault
-        .save_embedding(&memory.id, &embedding)
-        .map_err(err)?;
     Ok(memory)
 }

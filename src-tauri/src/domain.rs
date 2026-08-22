@@ -37,6 +37,8 @@ pub struct Memory {
     pub created_at: String,
     pub updated_at: String,
     pub emotion: String,
+    #[serde(default)]
+    pub emotions: Vec<String>,
     pub emotion_color: String,
     pub status: String,
     pub tags: Vec<EntityTag>,
@@ -74,7 +76,27 @@ pub fn emotion_color(value: &str) -> &'static str {
 impl Memory {
     pub fn normalize_metadata(&mut self) -> bool {
         let before = serde_json::to_vec(self).unwrap_or_default();
-        self.emotion = normalize_emotion(&self.emotion).to_string();
+        // `summary` is kept for backup compatibility, but it mirrors the
+        // untouched source text. AI metadata must never replace the memory body.
+        self.summary = self.content.clone();
+        if self.emotions.is_empty() {
+            self.emotions
+                .push(normalize_emotion(&self.emotion).to_string());
+        } else {
+            let mut seen_emotions = HashSet::new();
+            self.emotions = self
+                .emotions
+                .iter()
+                .map(|value| normalize_emotion(value).to_string())
+                .filter(|value| seen_emotions.insert(value.clone()))
+                .take(4)
+                .collect();
+        }
+        self.emotion = self
+            .emotions
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "宁静".into());
         self.emotion_color = emotion_color(&self.emotion).to_string();
 
         // Prefer the most specific interpretation when an AI response placed
@@ -91,7 +113,12 @@ impl Memory {
             if tag.label.is_empty() {
                 return false;
             }
-            let key = tag.label.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_lowercase();
+            let key = tag
+                .label
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect::<String>()
+                .to_lowercase();
             seen.insert(key)
         });
         before != serde_json::to_vec(self).unwrap_or_default()
@@ -133,13 +160,42 @@ mod tests {
 
     fn memory() -> Memory {
         Memory {
-            id: "m1".into(), title: "夜晚".into(), content: "和小夏散步".into(), summary: "散步".into(),
-            occurred_at: "2026-08-22T02:00:00Z".into(), created_at: "2026-08-22T02:00:00Z".into(), updated_at: "2026-08-22T02:00:00Z".into(),
-            emotion: "温馨".into(), emotion_color: "#fff".into(), status: "active".into(), attachments: vec![], ai_status: "succeeded".into(), favorite: false,
+            id: "m1".into(),
+            title: "夜晚".into(),
+            content: "和小夏散步".into(),
+            summary: "散步".into(),
+            occurred_at: "2026-08-22T02:00:00Z".into(),
+            created_at: "2026-08-22T02:00:00Z".into(),
+            updated_at: "2026-08-22T02:00:00Z".into(),
+            emotion: "温馨".into(),
+            emotions: vec![],
+            emotion_color: "#fff".into(),
+            status: "active".into(),
+            attachments: vec![],
+            ai_status: "succeeded".into(),
+            favorite: false,
             tags: vec![
-                EntityTag { id: "topic".into(), label: "小夏".into(), kind: "topic".into(), confidence: 0.8, source: "ai".into() },
-                EntityTag { id: "person".into(), label: " 小夏 ".into(), kind: "person".into(), confidence: 0.9, source: "ai".into() },
-                EntityTag { id: "blank".into(), label: "  ".into(), kind: "topic".into(), confidence: 0.5, source: "ai".into() },
+                EntityTag {
+                    id: "topic".into(),
+                    label: "小夏".into(),
+                    kind: "topic".into(),
+                    confidence: 0.8,
+                    source: "ai".into(),
+                },
+                EntityTag {
+                    id: "person".into(),
+                    label: " 小夏 ".into(),
+                    kind: "person".into(),
+                    confidence: 0.9,
+                    source: "ai".into(),
+                },
+                EntityTag {
+                    id: "blank".into(),
+                    label: "  ".into(),
+                    kind: "topic".into(),
+                    confidence: 0.5,
+                    source: "ai".into(),
+                },
             ],
         }
     }
@@ -149,10 +205,20 @@ mod tests {
         let mut value = memory();
         assert!(value.normalize_metadata());
         assert_eq!(value.emotion, "温暖");
+        assert_eq!(value.emotions, vec!["温暖"]);
         assert_eq!(value.emotion_color, "#ec9e7e");
         assert_eq!(value.tags.len(), 1);
         assert_eq!(value.tags[0].kind, "person");
         assert_eq!(value.tags[0].label, "小夏");
         assert!(["欣喜", "宁静", "温暖", "怀念", "勇敢", "难过"].contains(&value.emotion.as_str()));
+    }
+
+    #[test]
+    fn keeps_one_primary_emotion_and_distinct_secondary_emotions() {
+        let mut value = memory();
+        value.emotions = vec!["温馨".into(), "怀念".into(), "温暖".into(), "开心".into()];
+        value.normalize_metadata();
+        assert_eq!(value.emotion, "温暖");
+        assert_eq!(value.emotions, vec!["温暖", "怀念", "欣喜"]);
     }
 }

@@ -152,6 +152,27 @@ impl Vault {
         Ok(memories)
     }
 
+    pub fn delete_memory_permanently(&self, id: &str) -> Result<()> {
+        let memory = self.get(id)?.ok_or_else(|| anyhow!("记忆不存在"))?;
+        if memory.status != "trashed" {
+            return Err(anyhow!("只有回收站中的记忆可被彻底删除"));
+        }
+        for attachment in &memory.attachments {
+            if let Some(path) = attachment.encrypted_path.as_deref() {
+                self.delete_attachment(path)?;
+            }
+        }
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        transaction.execute("DELETE FROM embeddings WHERE memory_id=?1", [id])?;
+        transaction.execute(
+            "DELETE FROM memories WHERE id=?1 AND status='trashed'",
+            [id],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
     pub fn save_ai_config(&self, config: &AiProviderConfig) -> Result<()> {
         self.connection()?.execute(
             "INSERT OR REPLACE INTO metadata(key,value) VALUES('ai_config',?1)",
@@ -171,9 +192,6 @@ impl Vault {
         data.map(|v| Ok(serde_json::from_slice(&v)?)).transpose()
     }
 
-    pub fn save_embedding(&self, memory_id: &str, embedding: &[f32]) -> Result<()> {
-        self.with_key(|key|{let payload=encrypt(key,&serde_json::to_vec(embedding)?)?; self.connection()?.execute("INSERT OR REPLACE INTO embeddings(memory_id,payload,updated_at) VALUES(?1,?2,datetime('now'))",params![memory_id,payload])?; Ok(())})
-    }
     fn load_embedding(&self, memory_id: &str) -> Result<Option<Vec<f32>>> {
         self.with_key(|key| {
             let payload: Option<Vec<u8>> = self
@@ -201,7 +219,10 @@ impl Vault {
             self.list("active")?
                 .into_iter()
                 .filter(|m| {
-                    request.emotion.as_ref().is_none_or(|v| &m.emotion == v)
+                    request
+                        .emotion
+                        .as_ref()
+                        .is_none_or(|v| m.emotions.iter().any(|emotion| emotion == v))
                         && request
                             .tag
                             .as_ref()
@@ -221,7 +242,7 @@ impl Vault {
                         memory.title,
                         memory.content,
                         memory.summary,
-                        memory.emotion,
+                        memory.emotions.join(" "),
                         memory
                             .tags
                             .iter()
@@ -421,6 +442,33 @@ impl Vault {
             Ok(decrypt(key, &payload)?)
         })
     }
+
+    pub fn delete_attachment(&self, encrypted_path: &str) -> Result<()> {
+        self.with_key(|_| {
+            let file = Path::new(encrypted_path)
+                .file_name()
+                .ok_or_else(|| anyhow!("附件路径不正确"))?;
+            let target = self.attachments_path.join(file);
+            if target.exists() {
+                fs::remove_file(target).context("删除附件失败")?;
+            }
+            Ok(())
+        })
+    }
+
+    pub fn restore_failed_extractions(&self) -> Result<usize> {
+        let failed = self
+            .list("trashed")?
+            .into_iter()
+            .filter(|memory| memory.ai_status == "failed")
+            .collect::<Vec<_>>();
+        let count = failed.len();
+        for mut memory in failed {
+            memory.status = "active".into();
+            self.save(&memory)?;
+        }
+        Ok(count)
+    }
 }
 
 fn cosine(a: &[f32], b: &[f32]) -> f32 {
@@ -490,6 +538,7 @@ mod tests {
             created_at: "2026-08-21T00:00:00Z".into(),
             updated_at: "2026-08-21T00:00:00Z".into(),
             emotion: "宁静".into(),
+            emotions: vec!["宁静".into()],
             emotion_color: "#fff".into(),
             status: "active".into(),
             tags: vec![],

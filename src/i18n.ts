@@ -17,3 +17,7 @@ export function emotionLabel(emotion: string, language: Language) {
   if (language === 'zh') return emotion
   return ({ 欣喜: 'Joy', 宁静: 'Serenity', 温暖: 'Warmth', 怀念: 'Nostalgia', 勇敢: 'Courage', 难过: 'Sadness' } as Record<string, string>)[emotion] || emotion
 }
+
+export function memoryEmotionValues(memory: { emotion: string; emotions?: string[] }) {
+  return memory.emotions?.length ? memory.emotions : [memory.emotion]
+}

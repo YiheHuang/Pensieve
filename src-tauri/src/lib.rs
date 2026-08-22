@@ -37,12 +37,14 @@ pub fn run() {
             commands::list_memories,
             commands::get_memory,
             commands::save_memory,
+            commands::delete_memory_permanently,
             commands::search_memories,
             commands::export_backup,
             commands::restore_backup,
             commands::import_attachment,
             commands::import_attachment_bytes,
             commands::get_attachment_data,
+            commands::delete_attachment,
             commands::configure_ai,
             commands::analyze_memory
         ])

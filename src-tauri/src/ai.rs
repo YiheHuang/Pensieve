@@ -5,12 +5,38 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+fn memory_analysis_schema() -> Value {
+    // OpenAI-compatible relays commonly implement the Structured Outputs
+    // subset rather than every JSON Schema keyword. Duplicate emotions are
+    // removed by Memory::normalize_metadata after parsing.
+    json!({"name":"memory_analysis","strict":true,"schema":{"type":"object","additionalProperties":false,"required":["title","occurredAt","primaryEmotion","secondaryEmotions","people","places","topics","confidence"],"properties":{"title":{"type":"string"},"occurredAt":{"type":["string","null"],"description":"仅在原文明确表达时间时返回 RFC3339 时间，否则为 null"},"primaryEmotion":{"type":"string","enum":["欣喜","宁静","温暖","怀念","勇敢","难过"]},"secondaryEmotions":{"type":"array","maxItems":3,"items":{"type":"string","enum":["欣喜","宁静","温暖","怀念","勇敢","难过"]}},"people":{"type":"array","items":{"type":"string"}},"places":{"type":"array","items":{"type":"string"}},"topics":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"}}}})
+}
+
+async fn checked_response(
+    response: reqwest::Response,
+    operation: &str,
+) -> Result<reqwest::Response> {
+    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        let retry_after = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .map(|value| format!("，服务端建议等待 {value} 秒"))
+            .unwrap_or_default();
+        return Err(anyhow!(
+            "AI {operation}请求达到服务商的频率或额度上限（429）{retry_after}。应用本次只发送一次分析请求。"
+        ));
+    }
+    response.error_for_status().map_err(Into::into)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryAnalysis {
     pub title: String,
-    pub summary: String,
-    pub emotion: String,
+    pub occurred_at: Option<String>,
+    pub primary_emotion: String,
+    pub secondary_emotions: Vec<String>,
     pub people: Vec<String>,
     pub places: Vec<String>,
     pub topics: Vec<String>,
@@ -50,12 +76,13 @@ impl AiProvider for OpenAiCompatibleProvider {
         memory: &Memory,
         images: &[(String, String)],
     ) -> Result<MemoryAnalysis> {
-        let schema = json!({"name":"memory_analysis","strict":true,"schema":{"type":"object","additionalProperties":false,"required":["title","summary","emotion","people","places","topics","confidence"],"properties":{"title":{"type":"string"},"summary":{"type":"string"},"emotion":{"type":"string","enum":["欣喜","宁静","温暖","怀念","勇敢","难过"]},"people":{"type":"array","items":{"type":"string"}},"places":{"type":"array","items":{"type":"string"}},"topics":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"}}}});
+        let schema = memory_analysis_schema();
         let mut content = vec![json!({"type":"text","text":memory.content})];
         for (mime, data) in images.iter().take(4) {
             content.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{}",mime,data),"detail":"low"}}));
         }
-        let response = self.client.post(format!("{}/chat/completions",self.config.base_url.trim_end_matches('/'))).bearer_auth(&self.api_key).json(&json!({"model":self.config.chat_model,"messages":[{"role":"system","content":"你是私人记忆整理助手。温柔、简洁地提取文字与图片中的线索和可见文字，不得编造未出现的信息。emotion 只可从欣喜、宁静、温暖、怀念、勇敢、难过中选择。people 只放人物姓名或明确称谓，places 只放地点，topics 只放事件或主题；三个数组之间不得出现相同标签，也不要用人物名充当主题。"},{"role":"user","content":content}],"response_format":{"type":"json_schema","json_schema":schema}})).send().await?.error_for_status()?;
+        let response = self.client.post(format!("{}/chat/completions",self.config.base_url.trim_end_matches('/'))).bearer_auth(&self.api_key).json(&json!({"model":self.config.chat_model,"messages":[{"role":"system","content":"你是私人记忆元数据整理助手。只提取标题、时间、情绪与人物/地点/主题标签，不要总结、改写或生成正文，也不得编造未出现的信息。必须从欣喜、宁静、温暖、怀念、勇敢、难过中判断一个最主导的 primaryEmotion；只有记忆确实同时包含其他感受时，才将最多三个不同于主标签的情绪放入 secondaryEmotions，不要为了凑数添加副标签。people 只放人物姓名或明确称谓，places 只放地点，topics 只放事件或主题；三个数组之间不得出现相同标签，也不要用人物名充当主题。仅当原文明确提到记忆发生时间时，将 occurredAt 规范为带时区的 RFC3339；否则返回 null。"},{"role":"user","content":content}],"response_format":{"type":"json_schema","json_schema":schema}})).send().await?;
+        let response = checked_response(response, "记忆分析").await?;
         let value: Value = response.json().await?;
         let content = value
             .pointer("/choices/0/message/content")
@@ -130,8 +157,19 @@ mod tests {
     use super::*;
     #[test]
     fn strict_analysis_json_is_validated() {
-        let raw = r#"{"title":"雨天","summary":"散步","emotion":"宁静","people":[],"places":[],"topics":["日常"],"confidence":0.9}"#;
+        let raw = r#"{"title":"雨天","occurredAt":null,"primaryEmotion":"宁静","secondaryEmotions":["怀念"],"people":[],"places":[],"topics":["日常"],"confidence":0.9}"#;
         let parsed: MemoryAnalysis = serde_json::from_str(raw).unwrap();
-        assert_eq!(parsed.emotion, "宁静");
+        assert_eq!(parsed.primary_emotion, "宁静");
+        assert_eq!(parsed.secondary_emotions, vec!["怀念"]);
+    }
+
+    #[test]
+    fn relay_compatible_schema_avoids_unsupported_unique_items() {
+        let schema = memory_analysis_schema();
+        let secondary = schema
+            .pointer("/schema/properties/secondaryEmotions")
+            .unwrap();
+        assert!(secondary.get("uniqueItems").is_none());
+        assert_eq!(secondary.get("maxItems").and_then(Value::as_u64), Some(3));
     }
 }

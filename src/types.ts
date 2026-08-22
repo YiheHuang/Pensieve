@@ -31,6 +31,7 @@ export interface Memory {
   createdAt: string
   updatedAt: string
   emotion: string
+  emotions?: string[]
   emotionColor: string
   status: MemoryStatus
   tags: EntityTag[]
@@ -44,6 +45,7 @@ export interface MemoryDraft {
   content: string
   occurredAt: string
   emotion?: string
+  emotions?: string[]
   tags?: string[]
   attachments?: Attachment[]
 }
