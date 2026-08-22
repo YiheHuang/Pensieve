@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8d7bd0"/><stop offset="1" stop-color="#382e68"/></linearGradient>
+    <radialGradient id="water" cx="45%" cy="35%"><stop stop-color="#e9ffff"/><stop offset=".35" stop-color="#82dce5"/><stop offset="1" stop-color="#5967aa"/></radialGradient>
+    <linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d9d8ed"/><stop offset=".38" stop-color="#827aae"/><stop offset="1" stop-color="#383460"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="246" r="185" fill="none" stroke="#cfc3f1" stroke-opacity=".16" stroke-width="3"/>
+  <g filter="url(#glow)" fill="#fff1a9"><circle cx="144" cy="119" r="7"/><circle cx="371" cy="151" r="5"/><path d="M256 71l7 20 20 7-20 7-7 20-7-20-20-7 20-7z"/></g>
+  <path d="M122 237c6 115 54 184 134 184s128-69 134-184z" fill="url(#bowl)"/>
+  <ellipse cx="256" cy="237" rx="151" ry="68" fill="#dedff1"/>
+  <ellipse cx="256" cy="227" rx="130" ry="52" fill="url(#water)" stroke="#f1ffff" stroke-opacity=".8" stroke-width="6"/>
+  <ellipse cx="256" cy="227" rx="72" ry="25" fill="none" stroke="#eeffff" stroke-opacity=".72" stroke-width="4"/>
+  <path d="M256 151c-22-35 23-48 0-87M222 175c-24-30 8-44-7-67M292 173c25-32-4-42 15-65" fill="none" stroke="#bdfaff" stroke-width="8" stroke-linecap="round" opacity=".75" filter="url(#glow)"/>
+  <path d="M238 322l18-27 18 27-18 27z" fill="#baf4ef" filter="url(#glow)"/>
+  <ellipse cx="256" cy="420" rx="72" ry="23" fill="#302b58"/>
+</svg>

@@ -1,0 +1,34 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import type { AiSettings } from '../types'
+import type { Language } from '../i18n'
+import { isDesktop, nativeBridge } from '../services/nativeBridge'
+
+interface AppState {
+  locked: boolean
+  hasPin: boolean
+  pinHash: string
+  reduceMotion: boolean
+  soundEnabled: boolean
+  language: Language
+  ai: AiSettings
+  setupPin: (pin: string) => void
+  unlock: (pin: string) => boolean
+  lock: () => void
+  setPreference: (patch: Partial<Pick<AppState, 'reduceMotion' | 'soundEnabled'>>) => void
+  setLanguage: (language: Language) => void
+  setAi: (patch: Partial<AiSettings>) => void
+}
+
+const hashPin = (pin: string) => btoa([...pin].reverse().join('') + ':pensieve')
+
+export const useAppStore = create<AppState>()(persist((set, get) => ({
+  locked: true, hasPin: false, pinHash: '', reduceMotion: false, soundEnabled: true, language: 'zh',
+  ai: { enabled: false, baseUrl: 'https://api.openai.com/v1', chatModel: 'gpt-4.1-mini', embeddingModel: 'text-embedding-3-small', transcriptionModel: 'whisper-1', hasApiKey: false },
+  setupPin: pin => set({ hasPin: true, locked: false, pinHash: hashPin(pin) }),
+  unlock: pin => { const ok = get().pinHash === hashPin(pin); if (ok) set({ locked: false }); return ok },
+  lock: () => { if (isDesktop()) void nativeBridge.lock(); set({ locked: true }) },
+  setPreference: patch => set(patch),
+  setLanguage: language => set({ language }),
+  setAi: patch => set(s => ({ ai: { ...s.ai, ...patch } })),
+}), { name: 'pensieve.app.v1', partialize: s => ({ hasPin: s.hasPin, pinHash: s.pinHash, reduceMotion: s.reduceMotion, soundEnabled: s.soundEnabled, language: s.language, ai: s.ai }) }))
