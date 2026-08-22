@@ -4,16 +4,16 @@
 
 # Pensieve
 
-### A quiet, breathing basin for the moments you want to keep.
+### A quiet place where memories can be kept—and gently seen again.
 
-Pensieve is a cool-toned, immersive, local-first memory sanctuary for Windows. Capture a memory in your own words, then rediscover it through people, emotions, time, images, and sound.
+Pensieve is a local-first private memory sanctuary for Windows.<br />
+It does not ask you to turn life into a perfectly organized journal. It first receives your words, images, and voice as they are, then helps you return through emotion, people, place, and time.
 
 [![Release](https://img.shields.io/github/v/release/YiheHuang/Pensieve?style=for-the-badge&color=527f96&label=Release)](https://github.com/YiheHuang/Pensieve/releases/latest)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-315a70?style=for-the-badge&logo=windows11)](https://github.com/YiheHuang/Pensieve/releases/latest)
-[![Tauri](https://img.shields.io/badge/Tauri-2-18384a?style=for-the-badge&logo=tauri)](https://tauri.app/)
 [![License](https://img.shields.io/github/license/YiheHuang/Pensieve?style=for-the-badge&color=27495d)](LICENSE)
 
-**[Download for Windows](https://github.com/YiheHuang/Pensieve/releases/latest)** · **[English User Guide](docs/User-Guide.en.md)** · **[中文说明](README.md)**
+**[Download Pensieve](https://github.com/YiheHuang/Pensieve/releases/latest)** · **[Read the User Guide](docs/User-Guide.en.md)** · **[简体中文](README.md)**
 
 </div>
 
@@ -23,55 +23,98 @@ Pensieve is a cool-toned, immersive, local-first memory sanctuary for Windows. C
 
 > This lock-screen capture contains no memory text, attachments, API keys, or other private data.
 
-## Why Pensieve?
+## Why Pensieve exists
 
-Most journals ask you to organize first and write second. Pensieve does the opposite: it preserves your original words, while optional AI extracts only metadata such as a title, time, emotions, and clues. Your memory body remains yours.
+Memory is not organized like a folder.
 
-| Experience | What v0.2.0 offers |
-| --- | --- |
-| 💧 **Extract a memory** | Write only the memory, or attach images, audio, video, and voice recordings. Advanced fields stay optional. |
-| 🪄 **Casting ritual** | The wand-and-basin animation loops until AI returns a definitive result. |
-| 🎭 **Layered emotions** | One primary emotion and up to three secondary emotions, all searchable. |
-| 🧩 **Clean clues** | People, places, and topics are normalized and deduplicated across categories. |
-| 🌊 **Immersive replay** | Media appears above the original text, softened by a cool memory filter. |
-| ✏️ **Editable memories** | Edit the original text, occurrence time, and attachments at any time. |
-| 💗 **Treasured memories** | Hearts power a dedicated “Most treasured” filter. |
-| 🗑️ **Recycle bin** | Restore a memory or erase it permanently together with its encrypted attachments. |
-| 🌐 **Chinese & English** | Chinese is the default; switch to English in Preferences & Protection. |
-| 🔐 **Local protection** | PIN access, local encryption, system credentials, and encrypted backups. |
+We often remember the sound of rain, the expression on someone's face, the warmth after a shared meal, or a sentence we never managed to say. Conventional journals are good at chronological archives, but less suited to these vague, fragmented, emotional traces. Many modern note-taking tools also center forms, productivity, and metrics—turning the act of preserving a memory into another task to complete.
 
-## Quick start
+Pensieve was created in response.
 
-1. Open the [Pensieve v0.2.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.2.0).
+Its name draws on the magical image of a basin in which memories can settle and be revisited. The goal is not to build another journal, but a private, quiet space: leave a moment in its original form today, then return through an emotion, a person, a place, a sound, or an image years later.
+
+Pensieve follows three principles:
+
+1. **Preserve truth before organizing it.** Your original text belongs to you; AI extracts supporting metadata only.
+2. **Remembering should feel like an experience.** Interface, sound, and motion serve immersion rather than feature density.
+3. **Private memories should remain under personal control.** Local encryption, opt-in AI, and encrypted exports keep the boundary explicit.
+
+## What Pensieve can do
+
+### 💧 Capture without a form
+
+Write a paragraph, add photos, video, or audio, or record your voice directly. In everyday use, the memory itself is enough. Titles, emotions, and clues remain optional behind Advanced settings.
+
+### 🪄 Turn saving into a ritual
+
+Saving is not reduced to a cold submit button. A wand carries the memory's light into the basin, where it blooms across the water. Pensieve waits for AI organization to finish before opening the completed memory.
+
+### 🎭 Respect emotional complexity
+
+A memory rarely contains one feeling. Pensieve keeps one primary emotion and up to three secondary emotions, normalized into six searchable categories: Joy, Serenity, Warmth, Nostalgia, Courage, and Sadness.
+
+### 🧩 Let AI organize clues—not rewrite your life
+
+Optional AI extracts a title, explicitly stated time, people, places, topics, and emotions. It does not generate a rewritten body or summary. Labels are further normalized and deduplicated locally.
+
+### 🌊 Re-enter through immersive replay
+
+Describe a moment naturally in **Immerse**, or filter by emotion, date, and media. During replay, images, sound, and original prose surface inside a deep-water environment. A dim, cool memory filter keeps visual media from overpowering the words.
+
+### ✏️ Keep memories editable
+
+Edit the original text, occurrence time, and image/audio/video attachments at any time. You can rerun AI analysis to refresh only the title, emotions, and clues while preserving the source text.
+
+### 💗 Build a living gallery
+
+Heart moments to create a **Most treasured** collection. Browse the gallery as a timeline or grid, and let **Today's echo** bring back a line from a real local memory.
+
+### 🗑️ Leave room for second thoughts
+
+Deletion first moves a memory to the recycle bin. Restore it whenever you like, or erase it permanently together with its related index data and encrypted attachments.
+
+### 🌐 Welcome more people
+
+Pensieve opens in Simplified Chinese and includes a complete English interface, this README, and an [English User Guide](docs/User-Guide.en.md). Every user chooses their own display name.
+
+## Who it is for
+
+Pensieve may feel at home with people who:
+
+- want to record life without following a fixed journal format;
+- naturally remember through photos, voice, and fragments of prose;
+- look for old moments through emotions, people, or scenes;
+- care about local storage, encryption, and data autonomy;
+- appreciate calm, restrained software with a sense of ritual.
+
+It can also serve as a travel journal, family-memory archive, growth record, inspiration library, or private voice diary.
+
+## Start using Pensieve
+
+1. Open the [latest release](https://github.com/YiheHuang/Pensieve/releases/latest).
 2. Download and run `Pensieve-Setup-0.2.0.exe`.
 3. Create a 4–8 digit PIN and choose how Pensieve should address you.
-4. Optional: configure an OpenAI-compatible endpoint under **Preferences & Protection**.
-5. Open **Extract** and write your first memory.
+4. Open **Extract** and leave your first memory.
+5. Optional: configure your OpenAI-compatible service under **Preferences & Protection**.
 
-Read the full [English User Guide](docs/User-Guide.en.md), or switch to the [Chinese README](README.md).
+For installation, AI configuration, editing, backup, and recovery, read the complete **[Pensieve User Guide](docs/User-Guide.en.md)**.
 
-## Highlights in v0.2.0
+## Privacy and data boundaries
 
-- Frameless full-screen sanctuary with an in-app “End meditation” action.
-- First-run profile setup and Chinese/English language switching.
-- A simplified capture flow that waits for AI before opening details.
-- Primary/secondary emotion tags with a fixed six-emotion vocabulary.
-- Original-text protection: AI no longer summarizes or rewrites the memory body.
-- Editable memory text, occurrence time, and attachments.
-- Treasured-memory filtering, real daily echoes, and permanent recycle-bin deletion.
-- Structured Outputs compatibility for OpenAI-compatible relays, including OpenLux-style endpoints.
-
-See the [v0.2.0 release notes](https://github.com/YiheHuang/Pensieve/releases/tag/v0.2.0) for the complete changelog.
-
-## Privacy
-
-- Memory text, structured metadata, and attachments are encrypted on the desktop.
-- The PIN derives the vault key through Argon2id; AI keys stay in Windows Credential Manager.
-- AI is off by default and only contacts the endpoint you configure.
+- Memory text, structured metadata, and attachments are encrypted on the Windows desktop.
+- The PIN derives the vault key through Argon2id; AI API keys stay in Windows Credential Manager.
+- AI is off by default and contacts only the compatible service explicitly configured by the user.
 - `.pensieve` backups use a separate password and exclude the AI API key.
-- Permanent deletion removes the database record, related index data, and encrypted attachments.
+- Vault locking and permanent deletion keep control with the person who owns the memories.
 
-## Technology
+> Pensieve is a personal memory tool, not a substitute for professional medical, mental-health, or archival services. Keep independent backups of important material.
+
+## Open source, shaped together
+
+Pensieve is still growing. Memory keepers, digital-life enthusiasts, designers, and developers are welcome to share experiences, suggest ideas, or contribute through [GitHub Issues](https://github.com/YiheHuang/Pensieve/issues).
+
+<details>
+<summary><strong>For developers: technology and local setup</strong></summary>
 
 ```text
 UI          React 19 · TypeScript · Vite · Zustand · TanStack Query
@@ -80,17 +123,13 @@ Storage     SQLite · AES-256-GCM · Argon2id
 Quality     Vitest · Testing Library · Oxlint · Rust checks
 ```
 
-## Development
-
 ```powershell
 git clone https://github.com/YiheHuang/Pensieve.git
 cd Pensieve
 npm install
-npm run dev
-npm run tauri dev
+npm run dev          # Browser UI development
+npm run tauri dev    # Windows desktop development
 ```
-
-Checks and packaging:
 
 ```powershell
 npm test
@@ -99,7 +138,7 @@ npm run build
 npm run tauri:build:gnu
 ```
 
-Contributions and ideas are welcome through [GitHub Issues](https://github.com/YiheHuang/Pensieve/issues).
+</details>
 
 ---
 
@@ -107,6 +146,6 @@ Contributions and ideas are welcome through [GitHub Issues](https://github.com/Y
 
 **May every cherished memory find a place to glow again.**
 
-Released under the [MIT License](LICENSE).
+[Download](https://github.com/YiheHuang/Pensieve/releases/latest) · [User Guide](docs/User-Guide.en.md) · [简体中文](README.md) · [MIT License](LICENSE)
 
 </div>
