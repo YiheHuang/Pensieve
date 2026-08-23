@@ -291,13 +291,38 @@ pub async fn generate_time_echo(
     let mut treasured_moments = analysis.treasured_moments;
     for reference in &mut treasured_moments {
         clean_ids(&mut reference.memory_ids);
+        let normalized_reference = reference
+            .title
+            .chars()
+            .filter(|character| character.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect::<String>();
+        if let Some(exact) = memories.iter().find(|memory| {
+            memory
+                .title
+                .chars()
+                .filter(|character| character.is_alphanumeric())
+                .flat_map(char::to_lowercase)
+                .collect::<String>()
+                == normalized_reference
+        }) {
+            reference.memory_ids = vec![exact.id.clone()];
+        }
     }
-    treasured_moments.retain(|reference| !reference.title.trim().is_empty());
+    treasured_moments
+        .retain(|reference| !reference.title.trim().is_empty() && !reference.memory_ids.is_empty());
     treasured_moments.truncate(8);
     let mut emotion_counts = BTreeMap::new();
     let mut active_days = HashSet::new();
     for memory in &memories {
-        *emotion_counts.entry(memory.emotion.clone()).or_insert(0) += 1;
+        let emotions = if memory.emotions.is_empty() {
+            vec![memory.emotion.clone()]
+        } else {
+            memory.emotions.clone()
+        };
+        for emotion in emotions.into_iter().collect::<HashSet<_>>() {
+            *emotion_counts.entry(emotion).or_insert(0) += 1;
+        }
         if let Ok(date) = chrono::DateTime::parse_from_rfc3339(&memory.occurred_at) {
             active_days.insert(date.with_timezone(&beijing).date_naive());
         }

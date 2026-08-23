@@ -203,7 +203,7 @@ impl AiProvider for OpenAiCompatibleProvider {
         let body = json!({
             "model": self.config.chat_model,
             "messages": [
-                {"role":"system","content":format!("你是 Pensieve 的私人时光分析助手。{stage} 只依据材料分析，不编造事实或统计数字；memoryIds 只能使用材料中方括号标明的 ID。人物、地点、主题、情绪轨迹、珍贵片段与变化洞察应彼此区分。输出语言必须是 {language_name}。")},
+                {"role":"system","content":format!("你是 Pensieve 的私人时光分析助手。{stage} 只依据材料分析，不编造事实或统计数字；memoryIds 只能使用材料中方括号标明的 ID。人物、地点、主题、情绪轨迹、珍贵片段与变化洞察应彼此区分。treasuredMoments 中的每个片段必须只对应一段原记忆：title 原样使用该记忆的标题，memoryIds 只放该记忆唯一的 ID；不要把多段记忆合并成一个珍贵片段。分批提炼时也必须保留这个一一对应关系。输出语言必须是 {language_name}。")},
                 {"role":"user","content":input}
             ],
             "response_format":{"type":"json_schema","json_schema":time_echo_schema()}

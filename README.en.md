@@ -71,7 +71,7 @@ Heart moments to create a **Most treasured** collection. Browse the gallery as a
 
 ### 〰️ Listen to a chapter of time
 
-Choose a Beijing-time date range and Pensieve can reflect on emotional movement, people and relationships, places and scenes, themes and events, and patterns of change. Each report is preserved as an encrypted snapshot, then revealed chapter by chapter in a full-screen underwater reader. Treasured moments can lead directly back into their original memories.
+Choose a Beijing-time date range and Pensieve can reflect on emotional movement, people and relationships, places and scenes, themes and events, and patterns of change. Each report is preserved as an encrypted snapshot and revealed chapter by chapter in a full-screen underwater reader. Memory counts, active days, and emotional proportions become a colored underwater spectrum, while each treasured moment leads precisely back to its source memory.
 
 ### 🗑️ Leave room for second thoughts
 
@@ -96,7 +96,7 @@ It can also serve as a travel journal, family-memory archive, growth record, ins
 ## Start using Pensieve
 
 1. Open the [latest release](https://github.com/YiheHuang/Pensieve/releases/latest).
-2. Download and run `Pensieve-Setup-0.3.0.exe`.
+2. Download and run `Pensieve-Setup-0.4.0.exe`.
 3. Create a 4–8 digit PIN and choose how Pensieve should address you.
 4. Open **Extract** and leave your first memory.
 5. Optional: configure your OpenAI-compatible service under **Preferences & Protection**.

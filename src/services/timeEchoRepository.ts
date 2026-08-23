@@ -21,7 +21,7 @@ function section(heading: string, narrative: string, memories: Memory[]): TimeEc
 
 function createMockReport(memories: Memory[], request: GenerateTimeEchoRequest): TimeEchoReport {
   const zh = request.language === 'zh'; const now = new Date().toISOString()
-  const emotionCounts = memories.reduce<Record<string, number>>((all, memory) => { all[memory.emotion] = (all[memory.emotion] || 0) + 1; return all }, {})
+  const emotionCounts = memories.reduce<Record<string, number>>((all, memory) => { for (const emotion of new Set(memory.emotions?.length ? memory.emotions : [memory.emotion])) all[emotion] = (all[emotion] || 0) + 1; return all }, {})
   const dominant = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || (zh ? '宁静' : 'calm')
   return {
     id: crypto.randomUUID(), title: zh ? '这一程的时光回响' : 'Echoes of this season',

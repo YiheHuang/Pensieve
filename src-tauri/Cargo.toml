@@ -1,6 +1,6 @@
 [package]
 name = "pensieve"
-version = "0.3.0"
+version = "0.4.0"
 description = "Pensieve - a local-first personal memory sanctuary"
 authors = ["Pensieve"]
 license = "MIT"

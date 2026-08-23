@@ -5,7 +5,8 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Clock3, FileImage, Heart, MapPin,
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { timeEchoRepository } from '../services/timeEchoRepository'
 import { memoryRepository } from '../services/memoryRepository'
-import { buildTimeEchoSlides, resolveTimeEchoNavigation, type TimeEchoSlide, type TimeEchoSlideKind } from '../utils/timeEchoSlides'
+import { buildTimeEchoSlides, resolveTimeEchoNavigation, resolveTimeEchoSourceId, type TimeEchoEmotionShare, type TimeEchoSlide, type TimeEchoSlideKind } from '../utils/timeEchoSlides'
+import type { Memory } from '../types'
 import { useI18n } from '../i18n'
 
 const iconFor = (kind: TimeEchoSlideKind) => {
@@ -24,7 +25,7 @@ export function TimeEchoDetailPage() {
   const requestedIndex = Number.parseInt(searchParams.get('slide') || '0', 10)
   const index = Number.isFinite(requestedIndex) ? Math.min(Math.max(requestedIndex, 0), Math.max(slides.length - 1, 0)) : 0
   const slide = slides[index]
-  const { data: sourceMap = new Map<string, boolean>() } = useQuery({ queryKey: ['time-echo-sources', report?.sourceMemoryIds], enabled: !!report, queryFn: async () => new Map((await Promise.all((report?.sourceMemoryIds || []).map(async sourceId => [sourceId, !!(await memoryRepository.get(sourceId))] as const)))) })
+  const { data: sourceMap = new Map<string, Memory>() } = useQuery({ queryKey: ['time-echo-sources', id, report?.sourceMemoryIds.join('|')], enabled: !!report, queryFn: async () => new Map((await Promise.all((report?.sourceMemoryIds || []).map(async sourceId => [sourceId, await memoryRepository.get(sourceId)] as const))).filter((entry): entry is [string, Memory] => !!entry[1])) })
   const exit = useCallback(() => navigate('/echoes'), [navigate])
   const goTo = useCallback((next: number) => {
     if (!slides.length) return
@@ -57,8 +58,9 @@ export function TimeEchoDetailPage() {
   }, [exit, move, report])
   if (isLoading) return <div className="page echo-detail-loading"><Waves /><span>{t('正在打开回响…', 'Opening the echo…')}</span></div>
   if (!report || !slide) return <div className="page echo-empty"><Waves /><h2>{t('这份回响已不在档案库', 'This echo is no longer in the archive')}</h2><button onClick={exit}>{t('返回档案库', 'Back to archive')}</button></div>
-  const openSource = () => { const available = slide.memoryIds.find(sourceId => sourceMap.get(sourceId)); if (available) navigate(`/memory/${available}`) }
-  const sourceAvailable = slide.memoryIds.some(sourceId => sourceMap.get(sourceId))
+  const sourceId = resolveTimeEchoSourceId(slide, sourceMap)
+  const openSource = () => { if (sourceId) navigate(`/memory/${sourceId}`) }
+  const sourceAvailable = !!sourceId
   const favorite = async () => { await timeEchoRepository.update(report.id, { favorite: !report.favorite }); await refetch() }
   return createPortal(<div className={`echo-immersive echo-kind-${slide.kind}`} role="dialog" aria-modal="true" aria-label={t(`沉浸于${report.title}`, `Immersing in ${report.title}`)} onTouchStart={event => { touchStart.current = event.changedTouches[0]?.clientX ?? null }} onTouchEnd={event => { const end = event.changedTouches[0]?.clientX; if (touchStart.current === null || end === undefined) return; const distance = end - touchStart.current; touchStart.current = null; if (Math.abs(distance) >= 50) move(distance > 0 ? -1 : 1) }}>
     <div className="immersion-depth depth-one" /><div className="immersion-depth depth-two" />
@@ -74,11 +76,17 @@ export function TimeEchoDetailPage() {
 }
 
 function SlideContent({ slide, reportTitle, sourceAvailable, openSource, t }: { slide: TimeEchoSlide; reportTitle: string; sourceAvailable: boolean; openSource: () => void; t: (zh: string, en: string) => string }) {
-  if (slide.kind === 'cover') return <article className="echo-slide-content cover"><div className="echo-memory-orb"><i /><i /><i /><Waves /></div><div className="echo-slide-kicker"><Sparkles /> {slide.kicker}</div><h1>{slide.title}</h1><p>{slide.body}</p><time><Clock3 /> {slide.period}</time><small>{t('向右轻触，沉入这段时光', 'Move right to enter this chapter')}</small></article>
+  if (slide.kind === 'cover') return <article className="echo-slide-content cover"><div className="echo-memory-orb"><i /><i /><i /><Waves /></div><div className="echo-slide-kicker"><Sparkles /> {slide.kicker}</div><h1>{slide.title}</h1><p>{slide.body}</p><div className="echo-cover-glimmers">{slide.stats?.map(stat => <span key={stat.label}><strong>{stat.value}</strong><small>{stat.label}</small></span>)}</div>{slide.emotions && <div className="echo-cover-emotions">{slide.emotions.map(emotion => <span style={{ '--emotion-color': emotion.color } as CSSProperties} key={emotion.label}><i />{emotion.label}<strong>{emotion.percentage}%</strong></span>)}</div>}<time><Clock3 /> {slide.period}</time><small>{t('向右轻触，沉入这段时光', 'Move right to enter this chapter')}</small></article>
   return <article className={`echo-slide-content ${slide.kind}`}>
     <div className="echo-slide-icon">{iconFor(slide.kind)}</div><div className="echo-slide-kicker">{slide.kicker}</div><h1>{slide.title || reportTitle}</h1>
-    <div className="echo-slide-scroll"><p>{slide.body}</p>{slide.stats && <div className="echo-slide-stats">{slide.stats.map(stat => <span key={stat.label}><strong>{stat.value}</strong><small>{stat.label}</small></span>)}</div>}{slide.highlights.length > 0 && <ul>{slide.highlights.map((highlight, index) => <li key={`${highlight}-${index}`}>{highlight}</li>)}</ul>}</div>
+    <div className="echo-slide-scroll">{slide.body && <p>{slide.body}</p>}{slide.emotions && <EmotionPalette emotions={slide.emotions} t={t} />}{slide.stats && <div className="echo-slide-stats">{slide.stats.map(stat => <span key={stat.label}><strong>{stat.value}</strong><small>{stat.label}</small></span>)}</div>}{slide.highlights.length > 0 && <ul>{slide.highlights.map((highlight, index) => <li key={`${highlight}-${index}`}>{highlight}</li>)}</ul>}</div>
     {slide.kind === 'moment' && <button className={`echo-enter-memory ${sourceAvailable ? '' : 'missing'}`} disabled={!sourceAvailable} onClick={openSource}>{sourceAvailable ? t('沉入原记忆', 'Enter the original memory') : t('原记忆已不在长廊', 'Original memory is no longer in the gallery')}</button>}
     {slide.kind === 'closing' && <small className="echo-closing-note">{t('—— 来自这段时光的回响', '— An echo from this chapter')}</small>}
   </article>
+}
+
+function EmotionPalette({ emotions, t }: { emotions: TimeEchoEmotionShare[]; t: (zh: string, en: string) => string }) {
+  const gradient = emotions.map((emotion, index) => { const start = emotions.slice(0, index).reduce((sum, item) => sum + item.percentage, 0); const end = index === emotions.length - 1 ? 100 : Math.min(100, start + emotion.percentage); return `${emotion.color} ${start}% ${end}%` }).join(', ')
+  const dominant = emotions[0]
+  return <div className="echo-emotion-palette"><div className="echo-emotion-ring" style={{ background: `conic-gradient(${gradient})` }}><span><strong>{dominant?.label}</strong><small>{t('主色', 'dominant')}</small></span></div><div className="echo-emotion-legend">{emotions.map(emotion => <div style={{ '--emotion-color': emotion.color } as CSSProperties} key={emotion.label}><span><i />{emotion.label}</span><b><em style={{ width: `${emotion.percentage}%` }} /> </b><strong>{emotion.percentage}%</strong></div>)}</div></div>
 }

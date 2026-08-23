@@ -1,10 +1,10 @@
-# Pensieve v0.3.0 User Guide
+# Pensieve v0.4.0 User Guide
 
 **English** · [简体中文使用手册](使用手册.md) · [Project home](../README.en.md)
 
 ## 1. Install and begin
 
-1. Download `Pensieve-Setup-0.3.0.exe` from the [v0.3.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.3.0).
+1. Download `Pensieve-Setup-0.4.0.exe` from the [v0.4.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.4.0).
 2. Run the installer and launch Pensieve.
 3. Create and confirm a **4–8 digit PIN**.
 4. Enter the name Pensieve should use for you. You can change it later under Preferences & Protection.
@@ -94,9 +94,11 @@ Open **Time Echoes** from the sidebar:
 
 The report reflects on the chapter through its overview and statistics, emotional journey, people and relationships, places and scenes, themes and events, patterns and insights, treasured moments, and closing reflection. Inside the archive:
 
+- The cover presents memory count, active days, and leading emotions as softly colored glimmers.
+- A dedicated **Emotional spectrum** page uses a ring chart, proportion bars, and percentages to show the distribution of primary and secondary emotions.
 - Use the side buttons, chapter dots, or `←` and `→` keys to read one page at a time; swipe horizontally on touch screens.
 - Press `Esc` or select **Return to archive** to leave the reader.
-- Select **Enter the original memory** on a treasured-moment page; returning preserves the report page.
+- Each treasured moment remains paired with its source memory. Select **Enter the original memory** and returning preserves the report page.
 - Favorite, rename, or permanently delete reports after confirmation.
 
 A report is an independent snapshot. Later edits or deletion of source memories do not rewrite it. A missing source is shown as a quiet, static notice.

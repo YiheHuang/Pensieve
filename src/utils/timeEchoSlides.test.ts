@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { TimeEchoReport, TimeEchoSection } from '../types'
-import { buildTimeEchoSlides, resolveTimeEchoNavigation } from './timeEchoSlides'
+import type { Memory, TimeEchoReport, TimeEchoSection } from '../types'
+import { buildTimeEchoSlides, resolveTimeEchoNavigation, resolveTimeEchoSourceId } from './timeEchoSlides'
 
 const section = (heading: string, narrative: string, ids: string[] = ['m1']): TimeEchoSection => ({ heading, narrative, highlights: narrative ? ['微光'] : [], memoryIds: ids })
 function report(): TimeEchoReport {
@@ -16,7 +16,7 @@ function report(): TimeEchoReport {
 
 describe('buildTimeEchoSlides', () => {
   it('按封面、概览、五个维度、珍贵片段与结语排列', () => {
-    expect(buildTimeEchoSlides(report(), 'zh').map(slide => slide.kind)).toEqual(['cover', 'overview', 'emotion', 'people', 'places', 'themes', 'insights', 'moment', 'closing'])
+    expect(buildTimeEchoSlides(report(), 'zh').map(slide => slide.kind)).toEqual(['cover', 'overview', 'emotionMap', 'emotion', 'people', 'places', 'themes', 'insights', 'moment', 'closing'])
   })
 
   it('跳过空章节和空珍贵片段，但保留封面、概览与结语', () => {
@@ -31,6 +31,23 @@ describe('buildTimeEchoSlides', () => {
     const slides = buildTimeEchoSlides(report(), 'en')
     expect(slides[0].kicker).toBe('A TIME ECHO')
     expect(slides[1].body).toBe('一段完整的回望。')
+  })
+
+  it('计算情绪占比并为封面与光谱页提供色彩', () => {
+    const slides = buildTimeEchoSlides(report(), 'zh')
+    expect(slides[0].emotions).toEqual(expect.arrayContaining([expect.objectContaining({ label: '宁静', percentage: 50 }), expect.objectContaining({ label: '温暖', percentage: 50 })]))
+    expect(slides.find(slide => slide.kind === 'emotionMap')?.emotions).toHaveLength(2)
+  })
+})
+
+describe('resolveTimeEchoSourceId', () => {
+  const memory = (id: string, title: string, content: string): Memory => ({ id, title, content, summary: '', occurredAt: '', createdAt: '', updatedAt: '', emotion: '宁静', emotions: ['宁静'], emotionColor: '', status: 'active', tags: [], attachments: [], aiStatus: 'succeeded' })
+
+  it('旧报告的引用 ID 错位时，按片段标题找回真正的原记忆', () => {
+    const slide = buildTimeEchoSlides(report(), 'zh').find(item => item.kind === 'moment')!
+    slide.memoryIds = ['m1']
+    const memories = new Map([['m1', memory('m1', '厨房灯火', '晚餐')], ['m2', memory('m2', '湖边晚风', '湖边散步')]])
+    expect(resolveTimeEchoSourceId(slide, memories)).toBe('m2')
   })
 })
 
