@@ -28,7 +28,6 @@ export function AppShell() {
         <NavLink to="/settings"><Settings size={18} /><span>{t('偏好与守护', 'Preferences')}</span></NavLink>
         <button onClick={lock}><LockKeyhole size={18} /><span>{t('锁定记忆库', 'Lock vault')}</span></button>
         <button className="end-meditation" onClick={endMeditation}><LogOut size={18} /><span>{t('结束冥想', 'End meditation')}</span></button>
-        <div className="privacy-note"><span>✦</span><p>{t('所有记忆优先', 'Memories stay')}<br />{t('保存在这台设备', 'on this device')}</p></div>
       </div>
     </aside>
     <main className="main"><Outlet /></main>

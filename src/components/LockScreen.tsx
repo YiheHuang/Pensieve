@@ -18,17 +18,15 @@ export function LockScreen() {
     <div className="lock-aurora" /><section className="lock-panel">
       <MagicBowl compact />
       <div className="eyebrow"><Sparkles size={14} /> PENSIEVE</div>
-      <h1>{hasPin ? t('记忆正在静静等你', 'Your memories are waiting') : t('欢迎来到你的冥想盆', 'Welcome to your Pensieve')}</h1>
-      <p>{hasPin ? t('输入专属咒语，让冥想盆再次泛起微光。', 'Enter your private spell and let the basin glow again.') : t('先留下希望冥想盆如何称呼你，再设置一枚只属于此设备的 PIN。', 'Choose how the basin should greet you, then create a PIN for this device.')}</p>
+      <h1>{hasPin ? t('水面静候', 'The water awaits') : t('初见冥想盆', 'Your first reflection')}</h1>
       <form onSubmit={submit}>
-        {!hasPin && <><label htmlFor="display-name"><UserRound size={17} /> {t('你的称呼', 'Your name')} <small>{t('可选，之后仍可修改', 'Optional · editable later')}</small></label><input id="display-name" className="name-input" value={name} onChange={e => setName(e.target.value)} maxLength={24} placeholder={t('例如：小满', 'For example: Luna')} /></>}
-        <label htmlFor="vault-pin"><KeyRound size={17} /> {hasPin ? t('解锁 PIN', 'Unlock PIN') : t('设置 PIN', 'Create PIN')}</label>
+        {!hasPin && <><label htmlFor="display-name"><UserRound size={17} /> {t('称呼', 'Name')}</label><input id="display-name" className="name-input" value={name} onChange={e => setName(e.target.value)} maxLength={24} /></>}
+        <label htmlFor="vault-pin"><KeyRound size={17} /> {t('咒语', 'Spell')}</label>
         <input id="vault-pin" autoFocus type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value)} maxLength={8} placeholder="••••" />
-        {!hasPin && <input aria-label={t('再次输入 PIN', 'Confirm PIN')} type="password" inputMode="numeric" value={confirm} onChange={e => setConfirm(e.target.value)} maxLength={8} placeholder={t('再次输入', 'Enter again')} />}
+        {!hasPin && <input aria-label={t('再次输入咒语', 'Confirm spell')} type="password" inputMode="numeric" value={confirm} onChange={e => setConfirm(e.target.value)} maxLength={8} />}
         {error && <span className="form-error">{error}</span>}
-        <button className="primary-button" type="submit"><ShieldCheck size={18} /> {hasPin ? t('唤醒冥想盆', 'Awaken the basin') : t('创建私人记忆库', 'Create private vault')}</button>
+        <button className="primary-button" type="submit"><ShieldCheck size={18} /> {hasPin ? t('唤醒', 'Awaken') : t('封存咒语', 'Seal the spell')}</button>
       </form>
-      <small>{t('PIN 只保存在本机 · 忘记后需通过备份恢复', 'Your PIN stays on this device · Restore from backup if forgotten')}</small>
     </section>
   </div>
 }
