@@ -1,6 +1,6 @@
 [package]
 name = "pensieve"
-version = "0.2.0"
+version = "0.3.0"
 description = "Pensieve - a local-first personal memory sanctuary"
 authors = ["Pensieve"]
 license = "MIT"
@@ -37,7 +37,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "mul
 rusqlite = { version = "0.38", features = ["bundled"] }
 sha2 = "0.10"
 thiserror = "2"
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "time"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 zeroize = "1"
 zip = { version = "7", default-features = false, features = ["deflate"] }

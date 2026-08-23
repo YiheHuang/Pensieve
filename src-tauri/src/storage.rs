@@ -1,6 +1,6 @@
 use crate::{
     crypto::{decrypt, derive_key, encrypt, random_salt, SecretKey},
-    domain::{AiProviderConfig, Attachment, Memory, SearchRequest, SearchResult},
+    domain::{AiProviderConfig, Attachment, Memory, SearchRequest, SearchResult, TimeEchoReport},
 };
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -39,13 +39,14 @@ impl Vault {
     fn connection(&self) -> Result<Connection> {
         Ok(Connection::open(&self.db_path)?)
     }
-    fn migrate(&self) -> Result<()> {
+    pub fn migrate(&self) -> Result<()> {
         self.connection()?.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
           CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value BLOB NOT NULL);
           CREATE TABLE IF NOT EXISTS memories (id TEXT PRIMARY KEY, occurred_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, status TEXT NOT NULL, payload BLOB NOT NULL);
           CREATE INDEX IF NOT EXISTS idx_memories_timeline ON memories(status, occurred_at DESC);
           CREATE TABLE IF NOT EXISTS ai_jobs (id TEXT PRIMARY KEY, memory_id TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);")?;
         self.connection()?.execute_batch("CREATE TABLE IF NOT EXISTS embeddings (memory_id TEXT PRIMARY KEY, payload BLOB NOT NULL, updated_at TEXT NOT NULL);")?;
+        self.connection()?.execute_batch("CREATE TABLE IF NOT EXISTS time_echo_reports (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload BLOB NOT NULL); CREATE INDEX IF NOT EXISTS idx_time_echo_created ON time_echo_reports(created_at DESC);")?;
         Ok(())
     }
 
@@ -150,6 +151,56 @@ impl Vault {
             }
         }
         Ok(memories)
+    }
+
+    pub fn save_time_echo(&self, report: &TimeEchoReport) -> Result<()> {
+        self.with_key(|key| {
+            let payload = encrypt(key, &serde_json::to_vec(report)?)?;
+            self.connection()?.execute(
+                "INSERT INTO time_echo_reports(id,created_at,updated_at,payload) VALUES(?1,?2,?3,?4) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at,payload=excluded.payload",
+                params![report.id, report.created_at, report.updated_at, payload],
+            )?;
+            Ok(())
+        })
+    }
+
+    pub fn get_time_echo(&self, id: &str) -> Result<Option<TimeEchoReport>> {
+        self.with_key(|key| {
+            let payload: Option<Vec<u8>> = self
+                .connection()?
+                .query_row(
+                    "SELECT payload FROM time_echo_reports WHERE id=?1",
+                    [id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            payload
+                .map(|value| Ok(serde_json::from_slice(&decrypt(key, &value)?)?))
+                .transpose()
+        })
+    }
+
+    pub fn list_time_echoes(&self) -> Result<Vec<TimeEchoReport>> {
+        self.with_key(|key| {
+            let conn = self.connection()?;
+            let mut statement =
+                conn.prepare("SELECT payload FROM time_echo_reports ORDER BY created_at DESC")?;
+            let payloads = statement
+                .query_map([], |row| row.get::<_, Vec<u8>>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            payloads
+                .into_iter()
+                .map(|payload| Ok(serde_json::from_slice(&decrypt(key, &payload)?)?))
+                .collect()
+        })
+    }
+
+    pub fn delete_time_echo(&self, id: &str) -> Result<()> {
+        self.with_key(|_| {
+            self.connection()?
+                .execute("DELETE FROM time_echo_reports WHERE id=?1", [id])?;
+            Ok(())
+        })
     }
 
     pub fn delete_memory_permanently(&self, id: &str) -> Result<()> {
@@ -288,7 +339,7 @@ impl Vault {
         self.with_key(|_| {
             self.connection()?.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
             let mut cursor=Cursor::new(Vec::new());
-            { let mut zip=zip::ZipWriter::new(&mut cursor); let options=zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated); zip.start_file("manifest.json",options)?; zip.write_all(br#"{"format":"pensieve-archive","version":1}"#)?; zip.start_file("pensieve.db",options)?; zip.write_all(&fs::read(&self.db_path)?)?; for entry in fs::read_dir(&self.attachments_path)? { let entry=entry?; if entry.file_type()?.is_file(){zip.start_file(format!("attachments/{}",entry.file_name().to_string_lossy()),options)?; zip.write_all(&fs::read(entry.path())?)?;} } zip.finish()?; }
+            { let mut zip=zip::ZipWriter::new(&mut cursor); let options=zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated); zip.start_file("manifest.json",options)?; zip.write_all(br#"{"format":"pensieve-archive","version":2,"includes":["memories","attachments","timeEchoReports"]}"#)?; zip.start_file("pensieve.db",options)?; zip.write_all(&fs::read(&self.db_path)?)?; for entry in fs::read_dir(&self.attachments_path)? { let entry=entry?; if entry.file_type()?.is_file(){zip.start_file(format!("attachments/{}",entry.file_name().to_string_lossy()),options)?; zip.write_all(&fs::read(entry.path())?)?;} } zip.finish()?; }
             let salt = random_salt(); let key = derive_key(password, &salt)?; let encrypted = encrypt(&key, &cursor.into_inner())?;
             let envelope = serde_json::json!({"format":"pensieve-backup","version":1,"salt":STANDARD.encode(salt),"payload":STANDARD.encode(encrypted)});
             fs::write(target, serde_json::to_vec(&envelope)?)?; Ok(())
@@ -355,6 +406,9 @@ impl Vault {
         for (name, data) in attachments {
             fs::write(self.attachments_path.join(name), data)?;
         }
+        // A v0.2 backup has no report table. Migrate the restored database in
+        // place so old archives open with an empty Time Echoes library.
+        self.migrate()?;
         self.lock();
         Ok(())
     }
@@ -551,6 +605,88 @@ mod tests {
         assert!(vault.list("active").is_err());
         vault.unlock("2468").unwrap();
         assert_eq!(vault.get("m1").unwrap().unwrap().content, "珍贵的一天");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn encrypted_time_echo_round_trip_and_delete() {
+        use crate::domain::{TimeEchoSection, TimeEchoStats};
+        let root = std::env::temp_dir().join(format!("pensieve-echo-test-{}", Uuid::new_v4()));
+        let vault = Vault::new(&root).unwrap();
+        vault.initialize("2468").unwrap();
+        let now = "2026-08-23T00:00:00Z".to_string();
+        let report = TimeEchoReport {
+            id: "echo-1".into(),
+            title: "八月回响".into(),
+            period_start: "2026-08-01".into(),
+            period_end: "2026-08-23".into(),
+            created_at: now.clone(),
+            updated_at: now,
+            language: "zh".into(),
+            memory_count: 1,
+            source_memory_ids: vec!["m1".into()],
+            favorite: false,
+            stats: TimeEchoStats::default(),
+            overview: "一段安静的时光".into(),
+            emotional_journey: TimeEchoSection::default(),
+            people_and_relationships: TimeEchoSection::default(),
+            places_and_scenes: TimeEchoSection::default(),
+            themes_and_events: TimeEchoSection::default(),
+            patterns_and_insights: TimeEchoSection::default(),
+            treasured_moments: vec![],
+            closing_reflection: "继续向前".into(),
+        };
+        vault.save_time_echo(&report).unwrap();
+        vault.lock();
+        assert!(vault.list_time_echoes().is_err());
+        vault.unlock("2468").unwrap();
+        assert_eq!(
+            vault.get_time_echo("echo-1").unwrap().unwrap().overview,
+            "一段安静的时光"
+        );
+        vault.delete_time_echo("echo-1").unwrap();
+        assert!(vault.get_time_echo("echo-1").unwrap().is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn attachment_is_copied_encrypted_and_packaged_in_backup() {
+        let root =
+            std::env::temp_dir().join(format!("pensieve-attachment-test-{}", Uuid::new_v4()));
+        let vault = Vault::new(&root).unwrap();
+        vault.initialize("2468").unwrap();
+        let source = root.join("source.png");
+        let original = b"a private attachment copy";
+        fs::write(&source, original).unwrap();
+        let attachment = vault.import_attachment(&source, "m1").unwrap();
+        fs::remove_file(&source).unwrap();
+        assert_eq!(
+            vault
+                .read_attachment(attachment.encrypted_path.as_deref().unwrap())
+                .unwrap(),
+            original
+        );
+        let stored_name = Path::new(attachment.encrypted_path.as_deref().unwrap())
+            .file_name()
+            .unwrap();
+        assert_ne!(
+            fs::read(root.join("attachments").join(stored_name)).unwrap(),
+            original
+        );
+
+        let backup = root.join("copy-test.pensieve");
+        vault.export_backup("backup-password", &backup).unwrap();
+        let envelope: serde_json::Value =
+            serde_json::from_slice(&fs::read(&backup).unwrap()).unwrap();
+        let salt = STANDARD.decode(envelope["salt"].as_str().unwrap()).unwrap();
+        let payload = STANDARD
+            .decode(envelope["payload"].as_str().unwrap())
+            .unwrap();
+        let key = derive_key("backup-password", &salt).unwrap();
+        let archive_bytes = decrypt(&key, &payload).unwrap();
+        let mut archive = zip::ZipArchive::new(Cursor::new(archive_bytes)).unwrap();
+        let expected = format!("attachments/{}", stored_name.to_string_lossy());
+        assert!(archive.by_name(&expected).is_ok());
         let _ = fs::remove_dir_all(root);
     }
 

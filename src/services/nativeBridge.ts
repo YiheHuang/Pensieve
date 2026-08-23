@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/core'
-import type { AiSettings, Attachment, Memory, SearchFilters } from '../types'
+import { Channel, invoke } from '@tauri-apps/api/core'
+import type { AiSettings, Attachment, GenerateTimeEchoRequest, Memory, SearchFilters, TimeEchoProgress, TimeEchoReport } from '../types'
 
 export const isDesktop = () => '__TAURI_INTERNALS__' in window
 
@@ -21,4 +21,13 @@ export const nativeBridge = {
   restoreBackup: (path: string, password: string) => invoke<void>('restore_backup', { path, password }),
   configureAi: (config: AiSettings, apiKey?: string) => invoke<void>('configure_ai', { config: { enabled: config.enabled, baseUrl: config.baseUrl, chatModel: config.chatModel, embeddingModel: config.embeddingModel, transcriptionModel: config.transcriptionModel }, apiKey }),
   analyzeMemory: (id: string) => invoke<Memory>('analyze_memory', { id }),
+  listTimeEchoes: () => invoke<TimeEchoReport[]>('list_time_echoes'),
+  getTimeEcho: (id: string) => invoke<TimeEchoReport | undefined>('get_time_echo', { id }),
+  generateTimeEcho: (request: GenerateTimeEchoRequest, onProgress: (progress: TimeEchoProgress) => void) => {
+    const channel = new Channel<TimeEchoProgress>()
+    channel.onmessage = onProgress
+    return invoke<TimeEchoReport>('generate_time_echo', { request, onProgress: channel })
+  },
+  updateTimeEcho: (id: string, patch: { title?: string; favorite?: boolean }) => invoke<TimeEchoReport>('update_time_echo', { request: { id, ...patch } }),
+  deleteTimeEcho: (id: string) => invoke<void>('delete_time_echo', { id }),
 }

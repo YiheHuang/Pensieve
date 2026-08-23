@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { memoryRepository } from './memoryRepository'
+import { timeEchoRepository } from './timeEchoRepository'
 
 describe('memoryRepository', () => {
   it('先保存原文，再以等待状态进入 AI 队列', async () => {
@@ -59,5 +60,31 @@ describe('memoryRepository', () => {
     localStorage.clear()
     memoryRepository.importAll(backup)
     expect((await memoryRepository.list()).some(item => item.content === '需要带走的记忆。')).toBe(true)
+  })
+
+  it('可为北京时间范围生成并管理时光回响快照', async () => {
+    const memory = await memoryRepository.create({ content: '和家人在湖边度过了安静的傍晚。', occurredAt: '2026-08-23T20:00' })
+    const progress: string[] = []
+    const report = await timeEchoRepository.generate(
+      { fromDate: '2026-08-23', toDate: '2026-08-23', language: 'zh' },
+      await memoryRepository.list('active'),
+      value => progress.push(value.stage),
+    )
+    expect(report.sourceMemoryIds).toContain(memory.id)
+    expect(report.memoryCount).toBeGreaterThan(0)
+    expect(progress).toEqual(['preparing', 'batching', 'synthesizing', 'saving'])
+    expect((await timeEchoRepository.update(report.id, { favorite: true })).favorite).toBe(true)
+    await timeEchoRepository.remove(report.id)
+    expect(await timeEchoRepository.get(report.id)).toBeUndefined()
+  })
+
+  it('新版备份包含档案库，旧版备份仍可导入', async () => {
+    const memories = await memoryRepository.list('active')
+    const report = await timeEchoRepository.generate({ fromDate: '2026-08-01', toDate: '2026-08-31', language: 'zh' }, memories, () => {})
+    const backup = JSON.parse(memoryRepository.exportAll())
+    expect(backup.version).toBe(2)
+    expect(backup.reports.some((item: { id: string }) => item.id === report.id)).toBe(true)
+    memoryRepository.importAll(JSON.stringify({ format: 'pensieve-backup', version: 1, memories }))
+    expect(await timeEchoRepository.list()).toEqual([])
   })
 })

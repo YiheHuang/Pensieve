@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -152,6 +152,85 @@ pub struct AiProviderConfig {
     pub chat_model: String,
     pub embedding_model: String,
     pub transcription_model: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeEchoSection {
+    pub heading: String,
+    pub narrative: String,
+    #[serde(default)]
+    pub highlights: Vec<String>,
+    #[serde(default)]
+    pub memory_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeEchoReference {
+    pub title: String,
+    pub reflection: String,
+    #[serde(default)]
+    pub memory_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeEchoStats {
+    pub active_days: usize,
+    pub attachment_count: usize,
+    pub favorite_count: usize,
+    #[serde(default)]
+    pub emotion_counts: BTreeMap<String, usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeEchoReport {
+    pub id: String,
+    pub title: String,
+    pub period_start: String,
+    pub period_end: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub language: String,
+    pub memory_count: usize,
+    pub source_memory_ids: Vec<String>,
+    pub favorite: bool,
+    pub stats: TimeEchoStats,
+    pub overview: String,
+    pub emotional_journey: TimeEchoSection,
+    pub people_and_relationships: TimeEchoSection,
+    pub places_and_scenes: TimeEchoSection,
+    pub themes_and_events: TimeEchoSection,
+    pub patterns_and_insights: TimeEchoSection,
+    pub treasured_moments: Vec<TimeEchoReference>,
+    pub closing_reflection: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateTimeEchoRequest {
+    pub from_date: String,
+    pub to_date: String,
+    pub language: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateTimeEchoRequest {
+    pub id: String,
+    pub title: Option<String>,
+    pub favorite: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeEchoProgress {
+    pub stage: String,
+    pub current: usize,
+    pub total: usize,
+    pub message: String,
 }
 
 #[cfg(test)]

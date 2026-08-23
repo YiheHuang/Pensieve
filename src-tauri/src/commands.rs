@@ -1,10 +1,17 @@
 use crate::{
     ai::{load_api_key, store_api_key, AiProvider, OpenAiCompatibleProvider},
-    domain::{AiProviderConfig, Attachment, Memory, SearchRequest, SearchResult},
+    domain::{
+        AiProviderConfig, Attachment, GenerateTimeEchoRequest, Memory, SearchRequest, SearchResult,
+        TimeEchoProgress, TimeEchoReport, TimeEchoStats, UpdateTimeEchoRequest,
+    },
     storage::Vault,
 };
-use std::{path::PathBuf, sync::RwLock};
-use tauri::State;
+use std::{
+    collections::{BTreeMap, HashSet},
+    path::PathBuf,
+    sync::RwLock,
+};
+use tauri::{ipc::Channel, State};
 
 pub struct AppState {
     pub vault: Vault,
@@ -50,6 +57,301 @@ pub fn list_memories(status: Option<String>, state: State<AppState>) -> CmdResul
 #[tauri::command]
 pub fn get_memory(id: String, state: State<AppState>) -> CmdResult<Option<Memory>> {
     state.vault.get(&id).map_err(err)
+}
+
+#[tauri::command]
+pub fn list_time_echoes(state: State<AppState>) -> CmdResult<Vec<TimeEchoReport>> {
+    state.vault.list_time_echoes().map_err(err)
+}
+
+#[tauri::command]
+pub fn get_time_echo(id: String, state: State<AppState>) -> CmdResult<Option<TimeEchoReport>> {
+    state.vault.get_time_echo(&id).map_err(err)
+}
+
+#[tauri::command]
+pub fn update_time_echo(
+    request: UpdateTimeEchoRequest,
+    state: State<AppState>,
+) -> CmdResult<TimeEchoReport> {
+    let mut report = state
+        .vault
+        .get_time_echo(&request.id)
+        .map_err(err)?
+        .ok_or_else(|| "时光回响不存在".to_string())?;
+    if let Some(title) = request
+        .title
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        report.title = title;
+    }
+    if let Some(favorite) = request.favorite {
+        report.favorite = favorite;
+    }
+    report.updated_at = chrono::Utc::now().to_rfc3339();
+    state.vault.save_time_echo(&report).map_err(err)?;
+    Ok(report)
+}
+
+#[tauri::command]
+pub fn delete_time_echo(id: String, state: State<AppState>) -> CmdResult<()> {
+    state.vault.delete_time_echo(&id).map_err(err)
+}
+
+fn emit_progress(
+    channel: &Channel<TimeEchoProgress>,
+    stage: &str,
+    current: usize,
+    total: usize,
+    zh: &str,
+    en: &str,
+    language: &str,
+) {
+    let _ = channel.send(TimeEchoProgress {
+        stage: stage.into(),
+        current,
+        total,
+        message: if language == "en" { en } else { zh }.into(),
+    });
+}
+
+fn memory_documents(memories: &[Memory]) -> Vec<String> {
+    const SEGMENT: usize = 18_000;
+    let mut documents = Vec::new();
+    for memory in memories {
+        let tags = memory
+            .tags
+            .iter()
+            .map(|tag| format!("{}:{}", tag.kind, tag.label))
+            .collect::<Vec<_>>()
+            .join("、");
+        let transcripts = memory
+            .attachments
+            .iter()
+            .filter_map(|attachment| attachment.transcript.as_deref())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let chars = memory.content.chars().collect::<Vec<_>>();
+        let segment_count = chars.len().max(1).div_ceil(SEGMENT);
+        for (index, chunk) in chars.chunks(SEGMENT).enumerate() {
+            let body = chunk.iter().collect::<String>();
+            documents.push(format!("[memory:{}] ({}/{})\n标题：{}\n发生时间：{}\n情绪：{}\n标签：{}\n原始正文：{}\n音频转写：{}",
+                memory.id, index + 1, segment_count, memory.title, memory.occurred_at, memory.emotions.join("、"), tags, body, transcripts));
+        }
+        if chars.is_empty() {
+            documents.push(format!("[memory:{}] (1/1)\n标题：{}\n发生时间：{}\n情绪：{}\n标签：{}\n原始正文：\n音频转写：{}",
+                memory.id, memory.title, memory.occurred_at, memory.emotions.join("、"), tags, transcripts));
+        }
+    }
+    documents
+}
+
+fn pack_documents(documents: Vec<String>) -> Vec<String> {
+    const BUDGET: usize = 24_000;
+    let mut batches = Vec::new();
+    let mut current = String::new();
+    for document in documents {
+        if !current.is_empty() && current.chars().count() + document.chars().count() > BUDGET {
+            batches.push(current);
+            current = String::new();
+        }
+        if !current.is_empty() {
+            current.push_str("\n\n---\n\n");
+        }
+        current.push_str(&document);
+    }
+    if !current.is_empty() {
+        batches.push(current);
+    }
+    batches
+}
+
+#[tauri::command]
+pub async fn generate_time_echo(
+    request: GenerateTimeEchoRequest,
+    on_progress: Channel<TimeEchoProgress>,
+    state: State<'_, AppState>,
+) -> CmdResult<TimeEchoReport> {
+    let from = chrono::NaiveDate::parse_from_str(&request.from_date, "%Y-%m-%d")
+        .map_err(|_| "开始日期格式不正确".to_string())?;
+    let to = chrono::NaiveDate::parse_from_str(&request.to_date, "%Y-%m-%d")
+        .map_err(|_| "结束日期格式不正确".to_string())?;
+    if from > to {
+        return Err("开始日期不得晚于结束日期".into());
+    }
+    emit_progress(
+        &on_progress,
+        "preparing",
+        0,
+        1,
+        "正在整理记忆",
+        "Preparing memories",
+        &request.language,
+    );
+    let beijing = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+    let mut memories = state
+        .vault
+        .list("active")
+        .map_err(err)?
+        .into_iter()
+        .filter(|memory| {
+            chrono::DateTime::parse_from_rfc3339(&memory.occurred_at)
+                .ok()
+                .map(|date| {
+                    let day = date.with_timezone(&beijing).date_naive();
+                    day >= from && day <= to
+                })
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+    memories.sort_by(|a, b| a.occurred_at.cmp(&b.occurred_at));
+    if memories.is_empty() {
+        return Err("所选时间范围内没有正在珍藏的记忆".into());
+    }
+    let config = state
+        .ai_config
+        .read()
+        .map_err(err)?
+        .clone()
+        .filter(|config| config.enabled)
+        .ok_or_else(|| "请先在偏好与守护中启用 AI 服务".to_string())?;
+    let key = load_api_key().map_err(|_| "请先在偏好与守护中保存 API 密钥".to_string())?;
+    let provider = OpenAiCompatibleProvider::new(config, key);
+    let mut batches = pack_documents(memory_documents(&memories));
+    let mut round = 0usize;
+    while batches.len() > 1 {
+        round += 1;
+        let total = batches.len();
+        let mut summaries = Vec::with_capacity(total);
+        for (index, batch) in batches.into_iter().enumerate() {
+            emit_progress(
+                &on_progress,
+                "batching",
+                index + 1,
+                total,
+                "正在分批回望",
+                "Revisiting memories in batches",
+                &request.language,
+            );
+            let summary = provider
+                .summarize_time_echo(&batch, &request.language, true)
+                .await
+                .map_err(err)?;
+            summaries.push(format!(
+                "[round:{round};part:{}]\n{}",
+                index + 1,
+                serde_json::to_string(&summary).map_err(err)?
+            ));
+        }
+        let packed = pack_documents(summaries.clone());
+        // Even an unexpectedly verbose relay response must make progress
+        // through the reduction tree instead of repeating the same layer.
+        batches = if packed.len() >= total {
+            summaries
+                .chunks(2)
+                .map(|pair| pair.join("\n\n---\n\n"))
+                .collect()
+        } else {
+            packed
+        };
+    }
+    emit_progress(
+        &on_progress,
+        "synthesizing",
+        1,
+        1,
+        "正在汇聚回响",
+        "Gathering the echoes",
+        &request.language,
+    );
+    let analysis = provider
+        .summarize_time_echo(&batches.remove(0), &request.language, false)
+        .await
+        .map_err(err)?;
+    let valid_ids = memories
+        .iter()
+        .map(|memory| memory.id.clone())
+        .collect::<HashSet<_>>();
+    let clean_ids = |ids: &mut Vec<String>| {
+        ids.retain(|id| valid_ids.contains(id));
+        ids.sort();
+        ids.dedup();
+    };
+    let mut emotional_journey = analysis.emotional_journey;
+    clean_ids(&mut emotional_journey.memory_ids);
+    let mut people_and_relationships = analysis.people_and_relationships;
+    clean_ids(&mut people_and_relationships.memory_ids);
+    let mut places_and_scenes = analysis.places_and_scenes;
+    clean_ids(&mut places_and_scenes.memory_ids);
+    let mut themes_and_events = analysis.themes_and_events;
+    clean_ids(&mut themes_and_events.memory_ids);
+    let mut patterns_and_insights = analysis.patterns_and_insights;
+    clean_ids(&mut patterns_and_insights.memory_ids);
+    let mut treasured_moments = analysis.treasured_moments;
+    for reference in &mut treasured_moments {
+        clean_ids(&mut reference.memory_ids);
+    }
+    treasured_moments.retain(|reference| !reference.title.trim().is_empty());
+    treasured_moments.truncate(8);
+    let mut emotion_counts = BTreeMap::new();
+    let mut active_days = HashSet::new();
+    for memory in &memories {
+        *emotion_counts.entry(memory.emotion.clone()).or_insert(0) += 1;
+        if let Ok(date) = chrono::DateTime::parse_from_rfc3339(&memory.occurred_at) {
+            active_days.insert(date.with_timezone(&beijing).date_naive());
+        }
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    let report = TimeEchoReport {
+        id: uuid::Uuid::new_v4().to_string(),
+        title: if analysis.title.trim().is_empty() {
+            if request.language == "en" {
+                "Echoes of this chapter".into()
+            } else {
+                "这一程的时光回响".into()
+            }
+        } else {
+            analysis.title.trim().to_string()
+        },
+        period_start: request.from_date,
+        period_end: request.to_date,
+        created_at: now.clone(),
+        updated_at: now,
+        language: if request.language == "en" {
+            "en".into()
+        } else {
+            "zh".into()
+        },
+        memory_count: memories.len(),
+        source_memory_ids: memories.iter().map(|memory| memory.id.clone()).collect(),
+        favorite: false,
+        stats: TimeEchoStats {
+            active_days: active_days.len(),
+            attachment_count: memories.iter().map(|memory| memory.attachments.len()).sum(),
+            favorite_count: memories.iter().filter(|memory| memory.favorite).count(),
+            emotion_counts,
+        },
+        overview: analysis.overview,
+        emotional_journey,
+        people_and_relationships,
+        places_and_scenes,
+        themes_and_events,
+        patterns_and_insights,
+        treasured_moments,
+        closing_reflection: analysis.closing_reflection,
+    };
+    emit_progress(
+        &on_progress,
+        "saving",
+        1,
+        1,
+        "正在封存档案",
+        "Sealing the archive",
+        &report.language,
+    );
+    state.vault.save_time_echo(&report).map_err(err)?;
+    Ok(report)
 }
 #[tauri::command]
 pub fn save_memory(mut memory: Memory, state: State<AppState>) -> CmdResult<Memory> {

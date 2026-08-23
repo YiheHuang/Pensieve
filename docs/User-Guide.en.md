@@ -1,10 +1,10 @@
-# Pensieve v0.2.0 User Guide
+# Pensieve v0.3.0 User Guide
 
 **English** · [简体中文使用手册](使用手册.md) · [Project home](../README.en.md)
 
 ## 1. Install and begin
 
-1. Download `Pensieve-Setup-0.2.0.exe` from the [v0.2.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.2.0).
+1. Download `Pensieve-Setup-0.3.0.exe` from the [v0.3.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.3.0).
 2. Run the installer and launch Pensieve.
 3. Create and confirm a **4–8 digit PIN**.
 4. Enter the name Pensieve should use for you. You can change it later under Preferences & Protection.
@@ -83,7 +83,25 @@ After saving, the detail view, date filters, and gallery ordering update togethe
 - Heart a memory, then use **Most treasured** to filter those moments.
 - **Today's echo** comes from real local memories and rotates on Beijing time.
 
-## 9. Recycle bin
+## 9. Time Echoes
+
+Open **Time Echoes** from the sidebar:
+
+1. Choose a start and end date. Dates follow Beijing calendar days, and the default range is the latest 30 days.
+2. Confirm that the range contains at least one active memory.
+3. Select **Listen to the time echo**.
+4. Let Pensieve complete every stage: gathering memories, looking back in batches, converging the echo, and sealing the archive.
+
+The report reflects on the chapter through its overview and statistics, emotional journey, people and relationships, places and scenes, themes and events, patterns and insights, treasured moments, and closing reflection. Inside the archive:
+
+- Use the side buttons, chapter dots, or `←` and `→` keys to read one page at a time; swipe horizontally on touch screens.
+- Press `Esc` or select **Return to archive** to leave the reader.
+- Select **Enter the original memory** on a treasured-moment page; returning preserves the report page.
+- Favorite, rename, or permanently delete reports after confirmation.
+
+A report is an independent snapshot. Later edits or deletion of source memories do not rewrite it. A missing source is shown as a quiet, static notice.
+
+## 10. Recycle bin
 
 Deleting from a memory detail first moves it to the recycle bin.
 
@@ -92,7 +110,7 @@ Deleting from a memory detail first moves it to the recycle bin.
 
 Permanently deleted content is excluded from future backups.
 
-## 10. Language
+## 11. Language
 
 Open **Preferences & Protection** and choose:
 
@@ -101,7 +119,7 @@ Open **Preferences & Protection** and choose:
 
 The interface changes immediately. Pensieve never translates or modifies your memory text.
 
-## 11. Backup and restore
+## 12. Backup and restore
 
 ### Export
 
@@ -115,9 +133,9 @@ The interface changes immediately. Pensieve never translates or modifies your me
 2. Choose the `.pensieve` file and enter its backup password.
 3. After validation, unlock with the original vault PIN.
 
-A backup includes the memory database, structured metadata, and encrypted media. It excludes the AI API key.
+A backup includes the memory database, structured metadata, encrypted media, and Time Echo archives. It excludes the AI API key.
 
-## 12. Privacy habits
+## 13. Privacy habits
 
 - Desktop data lives in the current Windows user's application-data directory.
 - Memory text and attachments are encrypted locally.

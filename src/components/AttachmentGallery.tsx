@@ -7,11 +7,11 @@ import { useI18n } from '../i18n'
 function MediaItem({ attachment }: { attachment: Attachment }) {
   const { t } = useI18n(); const [src, setSrc] = useState(attachment.url); const [failed, setFailed] = useState(false)
   useEffect(() => { let active = true; if (isDesktop() && attachment.encryptedPath) { nativeBridge.getAttachmentData(attachment.encryptedPath).then(data => { if (active) setSrc(`data:${attachment.mimeType};base64,${data}`) }).catch(() => setFailed(true)) } return () => { active = false } }, [attachment])
-  if (failed) return <div className="media-failed"><FileWarning /><span>{attachment.name}</span></div>
-  if (!src) return <div className="media-loading"><span className="shimmer" />{attachment.kind === 'image' ? <ImageIcon /> : attachment.kind === 'audio' ? <Music2 /> : <Video />}<small>{t(`正在唤醒 ${attachment.name}`, `Loading ${attachment.name}`)}</small></div>
-  if (attachment.kind === 'image') return <figure><img src={src} alt={attachment.name} /><figcaption>{attachment.name}</figcaption></figure>
-  if (attachment.kind === 'audio') return <div className="audio-memory"><Music2 /><div><strong>{attachment.name}</strong><audio controls src={src} />{attachment.transcript && <p>“{attachment.transcript}”</p>}</div></div>
-  return <figure className="video-memory"><video controls src={src} /><figcaption>{attachment.name}</figcaption></figure>
+  if (failed) return <div className="media-failed"><FileWarning /><span>{t('这缕记忆暂时没有回应', 'This memory fragment is quiet for now')}</span></div>
+  if (!src) return <div className="media-loading"><span className="shimmer" />{attachment.kind === 'image' ? <ImageIcon /> : attachment.kind === 'audio' ? <Music2 /> : <Video />}<small>{t('正在唤醒这缕记忆', 'Awakening this memory fragment')}</small></div>
+  if (attachment.kind === 'image') return <figure className="image-memory"><img src={src} alt={t('记忆中的画面', 'A scene from this memory')} /></figure>
+  if (attachment.kind === 'audio') return <div className="audio-memory"><Music2 /><div><audio aria-label={t('记忆中的声音', 'Sound from this memory')} controls src={src} />{attachment.transcript && <p>“{attachment.transcript}”</p>}</div></div>
+  return <figure className="video-memory"><video aria-label={t('记忆中的影像', 'Video from this memory')} controls src={src} /></figure>
 }
 
 interface AttachmentGalleryProps {

@@ -2,6 +2,7 @@ import { seedMemories } from '../data/seed'
 import type { Memory, MemoryDraft, SearchFilters } from '../types'
 import { isDesktop, nativeBridge } from './nativeBridge'
 import { beijingInputToIso } from '../utils/date'
+import { readBrowserTimeEchoes, writeBrowserTimeEchoes } from './timeEchoRepository'
 
 const STORAGE_KEY = 'pensieve.memories.v1'
 const wait = (ms = 120) => new Promise(resolve => setTimeout(resolve, ms))
@@ -82,8 +83,8 @@ export const memoryRepository = {
     }).map((memory, index) => ({ memory, score: Math.max(.62, .96 - index * .08), reason: q ? `与你询问的「${filters.query}」在情境与主题上相近` : '符合当前筛选条件' }))
   },
   async random() { const items = await this.list('active'); return items[Math.floor(Math.random() * items.length)] },
-  exportAll() { return JSON.stringify({ format: 'pensieve-backup', version: 1, exportedAt: new Date().toISOString(), memories: read() }, null, 2) },
-  importAll(raw: string) { const data = JSON.parse(raw); if (data.format !== 'pensieve-backup' || !Array.isArray(data.memories)) throw new Error('备份文件格式不正确'); write(data.memories) },
+  exportAll() { return JSON.stringify({ format: 'pensieve-backup', version: 2, exportedAt: new Date().toISOString(), memories: read(), reports: readBrowserTimeEchoes() }, null, 2) },
+  importAll(raw: string) { const data = JSON.parse(raw); if (data.format !== 'pensieve-backup' || !Array.isArray(data.memories)) throw new Error('备份文件格式不正确'); write(data.memories); writeBrowserTimeEchoes(Array.isArray(data.reports) ? data.reports : []) },
 }
 
 function inferTitle(text: string) { const first = text.split(/[。！？\n]/)[0].trim(); return first.slice(0, 18) || '一缕未命名的记忆' }

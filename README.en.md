@@ -69,6 +69,10 @@ Edit the original text, occurrence time, and image/audio/video attachments at an
 
 Heart moments to create a **Most treasured** collection. Browse the gallery as a timeline or grid, and let **Today's echo** bring back a line from a real local memory.
 
+### 〰️ Listen to a chapter of time
+
+Choose a Beijing-time date range and Pensieve can reflect on emotional movement, people and relationships, places and scenes, themes and events, and patterns of change. Each report is preserved as an encrypted snapshot, then revealed chapter by chapter in a full-screen underwater reader. Treasured moments can lead directly back into their original memories.
+
 ### 🗑️ Leave room for second thoughts
 
 Deletion first moves a memory to the recycle bin. Restore it whenever you like, or erase it permanently together with its related index data and encrypted attachments.
@@ -92,7 +96,7 @@ It can also serve as a travel journal, family-memory archive, growth record, ins
 ## Start using Pensieve
 
 1. Open the [latest release](https://github.com/YiheHuang/Pensieve/releases/latest).
-2. Download and run `Pensieve-Setup-0.2.0.exe`.
+2. Download and run `Pensieve-Setup-0.3.0.exe`.
 3. Create a 4–8 digit PIN and choose how Pensieve should address you.
 4. Open **Extract** and leave your first memory.
 5. Optional: configure your OpenAI-compatible service under **Preferences & Protection**.
@@ -104,7 +108,7 @@ For installation, AI configuration, editing, backup, and recovery, read the comp
 - Memory text, structured metadata, and attachments are encrypted on the Windows desktop.
 - The PIN derives the vault key through Argon2id; AI API keys stay in Windows Credential Manager.
 - AI is off by default and contacts only the compatible service explicitly configured by the user.
-- `.pensieve` backups use a separate password and exclude the AI API key.
+- `.pensieve` backups use a separate password, include memories, attachments, and Time Echo archives, and exclude the AI API key.
 - Vault locking and permanent deletion keep control with the person who owns the memories.
 
 > Pensieve is a personal memory tool, not a substitute for professional medical, mental-health, or archival services. Keep independent backups of important material.

@@ -1,4 +1,4 @@
-import { Archive, Droplets, Home, LockKeyhole, LogOut, Search, Settings, Sparkles } from 'lucide-react'
+import { Archive, Droplets, Home, LockKeyhole, LogOut, Search, Settings, Sparkles, Waves } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../stores/appStore'
 import { useI18n } from '../i18n'
@@ -11,6 +11,7 @@ export function AppShell() {
     { to: '/capture', label: t('提取', 'Extract'), icon: Droplets },
     { to: '/search', label: t('沉浸', 'Immerse'), icon: Search },
     { to: '/timeline', label: t('记忆长廊', 'Gallery'), icon: Archive },
+    { to: '/echoes', label: t('时光回响', 'Time Echoes'), icon: Waves },
   ]
   const navigate = useNavigate(); const lock = useAppStore(s => s.lock)
   const endMeditation = async () => {
