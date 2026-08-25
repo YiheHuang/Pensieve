@@ -1,10 +1,10 @@
-# Pensieve v0.4.0 User Guide
+# Pensieve v0.5.0 User Guide
 
 **English** · [简体中文使用手册](使用手册.md) · [Project home](../README.en.md)
 
 ## 1. Install and begin
 
-1. Download `Pensieve-Setup-0.4.0.exe` from the [v0.4.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.4.0).
+1. Download `Pensieve-Setup-0.5.0.exe` from the [v0.5.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.5.0).
 2. Run the installer and launch Pensieve.
 3. Create and confirm a **4–8 digit PIN**.
 4. Enter the name Pensieve should use for you. You can change it later under Preferences & Protection.
@@ -18,6 +18,8 @@ Pensieve runs as a frameless full-screen application without native Windows chro
 - **End meditation** at the lower left closes the application.
 - **Lock memory vault** removes the decrypted key from memory and returns to the lock screen.
 - **Preferences & Protection** contains profile, language, motion, sound, AI, and backup settings.
+- Inputs in Extract, Immerse, the Gallery, and the lock screen awaken with inner light and quiet ripples on focus.
+- Precise-pointer devices use a silver-blue starlight cursor with a short luminous trail; reduced motion removes the trail, while high contrast restores the system pointer.
 
 ## 3. Extract a memory
 

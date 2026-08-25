@@ -22,8 +22,8 @@ export function LockScreen() {
       <form onSubmit={submit}>
         {!hasPin && <><label htmlFor="display-name"><UserRound size={17} /> {t('称呼', 'Name')}</label><input id="display-name" className="name-input" value={name} onChange={e => setName(e.target.value)} maxLength={24} /></>}
         <label htmlFor="vault-pin"><KeyRound size={17} /> {t('咒语', 'Spell')}</label>
-        <input id="vault-pin" autoFocus type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value)} maxLength={8} placeholder="••••" />
-        {!hasPin && <input aria-label={t('再次输入咒语', 'Confirm spell')} type="password" inputMode="numeric" value={confirm} onChange={e => setConfirm(e.target.value)} maxLength={8} />}
+        <div className="water-input-shell lock-spell-surface"><input id="vault-pin" autoFocus type="password" inputMode="numeric" autoComplete={hasPin ? 'current-password' : 'new-password'} value={pin} onChange={e => setPin(e.target.value)} maxLength={8} placeholder="••••" /></div>
+        {!hasPin && <div className="water-input-shell lock-spell-surface"><input aria-label={t('再次输入咒语', 'Confirm spell')} type="password" inputMode="numeric" autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} maxLength={8} /></div>}
         {error && <span className="form-error">{error}</span>}
         <button className="primary-button" type="submit"><ShieldCheck size={18} /> {hasPin ? t('唤醒', 'Awaken') : t('封存咒语', 'Seal the spell')}</button>
       </form>

@@ -48,13 +48,15 @@ export function CapturePage() {
     <header className="page-header sanctuary-header"><div className="eyebrow"><Sparkles size={14} /> {t('记忆仪式', 'MEMORY RITUAL')}</div><h1>{t('让这一刻沉入水中', 'Let this moment enter the water')}</h1></header>
     <section className="capture-card simplified">
       <div className="capture-main">
-        <textarea autoFocus value={content} onChange={e => setContent(e.target.value)} placeholder={t('写下这段记忆…', 'Write this memory…')} />
-        <div className="capture-toolbar">
-          <input ref={inputRef} hidden type="file" multiple accept="image/*,audio/*,video/*" onChange={e => addFiles(e.target.files)} />
-          <button onClick={chooseFiles}><Paperclip size={17} /> {t('媒体', 'Media')}</button>
-          <button className={recording ? 'recording' : ''} onClick={toggleRecording}><Mic size={17} /> {recording ? t('收声', 'Stop') : t('声音', 'Voice')}</button>
+        <div className="memory-writing-surface">
+          <textarea autoFocus value={content} onChange={e => setContent(e.target.value)} placeholder={t('写下这段记忆…', 'Write this memory…')} />
+          <div className="capture-toolbar">
+            <input ref={inputRef} hidden type="file" multiple accept="image/*,audio/*,video/*" onChange={e => addFiles(e.target.files)} />
+            <button onClick={chooseFiles}><Paperclip size={17} /> {t('媒体', 'Media')}</button>
+            <button className={recording ? 'recording' : ''} onClick={toggleRecording}><Mic size={17} /> {recording ? t('收声', 'Stop') : t('声音', 'Voice')}</button>
+          </div>
+          {!!attachments.length && <div className="attachment-strip">{attachments.map(attachment => <div key={attachment.id} className="attachment-chip">{attachment.kind === 'image' ? <Image /> : attachment.kind === 'audio' ? <Mic /> : <Video />}<span>{attachment.name}<small>{(attachment.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => setAttachments(attachments.filter(item => item.id !== attachment.id))}><X /></button></div>)}</div>}
         </div>
-        {!!attachments.length && <div className="attachment-strip">{attachments.map(attachment => <div key={attachment.id} className="attachment-chip">{attachment.kind === 'image' ? <Image /> : attachment.kind === 'audio' ? <Mic /> : <Video />}<span>{attachment.name}<small>{(attachment.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => setAttachments(attachments.filter(item => item.id !== attachment.id))}><X /></button></div>)}</div>}
       </div>
       <details className="capture-advanced" open={advanced} onToggle={event => setAdvanced(event.currentTarget.open)}>
         <summary><span><WandSparkles /> {t('水下线索', 'Beneath the surface')}</span><ChevronDown /></summary>
