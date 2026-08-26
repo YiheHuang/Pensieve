@@ -62,7 +62,7 @@ export function CapturePage() {
         <summary><span><WandSparkles /> {t('水下线索', 'Beneath the surface')}</span><ChevronDown /></summary>
         <div className="advanced-grid">
           <label>{t('记忆之名', 'Memory name')}<input value={title} onChange={e => setTitle(e.target.value)} /></label>
-          <label><span><CalendarDays size={15} /> {t('时光 · 北京', 'Time · Beijing')}</span><input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} /></label>
+          <label><span><CalendarDays size={15} /> {t('时光', 'Time')}</span><input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} /></label>
           <div className="advanced-field"><span>{t('情绪', 'Emotions')}</span><div className="emotion-picker">{emotions.map(item => { const index = selectedEmotions.indexOf(item); return <button className={`${index >= 0 ? 'active' : ''} ${index === 0 ? 'primary-emotion' : ''}`} onClick={() => toggleEmotion(item)} key={item}><i />{emotionLabel(item, language)}{index >= 0 && <small>{index === 0 ? t('主', 'Main') : t('副', 'Sub')}</small>}</button> })}</div></div>
           <div className="advanced-field"><span>{t('线索', 'Clues')}</span><div className="tag-input"><input aria-label={t('加入线索', 'Add a clue')} value={tag} onChange={e => setTag(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())} /><button onClick={addTag}>＋</button></div><div className="selected-tags">{tags.map(item => <button key={item} onClick={() => setTags(tags.filter(value => value !== item))}>#{item} ×</button>)}</div></div>
         </div>
