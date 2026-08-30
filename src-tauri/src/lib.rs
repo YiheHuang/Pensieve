@@ -1,4 +1,5 @@
 mod ai;
+mod ai_response;
 mod commands;
 mod crypto;
 mod domain;

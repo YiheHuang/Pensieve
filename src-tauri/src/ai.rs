@@ -1,4 +1,7 @@
-use crate::domain::{AiProviderConfig, Memory, TimeEchoReference, TimeEchoSection};
+use crate::{
+    ai_response::{extract_structured_content, parse_response_bytes},
+    domain::{AiProviderConfig, Memory, TimeEchoReference, TimeEchoSection},
+};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -9,7 +12,7 @@ fn memory_analysis_schema() -> Value {
     // OpenAI-compatible relays commonly implement the Structured Outputs
     // subset rather than every JSON Schema keyword. Duplicate emotions are
     // removed by Memory::normalize_metadata after parsing.
-    json!({"name":"memory_analysis","strict":true,"schema":{"type":"object","additionalProperties":false,"required":["title","occurredAt","primaryEmotion","secondaryEmotions","people","places","topics","confidence"],"properties":{"title":{"type":"string"},"occurredAt":{"type":["string","null"],"description":"仅在原文明确表达时间时返回 RFC3339 时间，否则为 null"},"primaryEmotion":{"type":"string","enum":["欣喜","宁静","温暖","怀念","勇敢","难过"]},"secondaryEmotions":{"type":"array","maxItems":3,"items":{"type":"string","enum":["欣喜","宁静","温暖","怀念","勇敢","难过"]}},"people":{"type":"array","items":{"type":"string"}},"places":{"type":"array","items":{"type":"string"}},"topics":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"}}}})
+    json!({"name":"memory_analysis","strict":true,"schema":{"type":"object","additionalProperties":false,"required":["title","primaryEmotion","secondaryEmotions","people","places","topics","confidence"],"properties":{"title":{"type":"string"},"primaryEmotion":{"type":"string","enum":["欣喜","宁静","温暖","怀念","勇敢","难过"]},"secondaryEmotions":{"type":"array","maxItems":3,"items":{"type":"string","enum":["欣喜","宁静","温暖","怀念","勇敢","难过"]}},"people":{"type":"array","items":{"type":"string"}},"places":{"type":"array","items":{"type":"string"}},"topics":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"}}}})
 }
 
 fn time_echo_schema() -> Value {
@@ -30,29 +33,10 @@ fn time_echo_schema() -> Value {
     }})
 }
 
-async fn checked_response(
-    response: reqwest::Response,
-    operation: &str,
-) -> Result<reqwest::Response> {
-    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-        let retry_after = response
-            .headers()
-            .get(reqwest::header::RETRY_AFTER)
-            .and_then(|value| value.to_str().ok())
-            .map(|value| format!("，服务端建议等待 {value} 秒"))
-            .unwrap_or_default();
-        return Err(anyhow!(
-            "AI {operation}请求达到服务商的频率或额度上限（429）{retry_after}。应用本次只发送一次分析请求。"
-        ));
-    }
-    response.error_for_status().map_err(Into::into)
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryAnalysis {
     pub title: String,
-    pub occurred_at: Option<String>,
     pub primary_emotion: String,
     pub secondary_emotions: Vec<String>,
     pub people: Vec<String>,
@@ -102,11 +86,92 @@ impl OpenAiCompatibleProvider {
         Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(90))
+                .http1_only()
                 .build()
                 .unwrap_or_else(|_| Client::new()),
             config,
             api_key,
         }
+    }
+
+    async fn post_json_with_retry(
+        &self,
+        path: &str,
+        body: &Value,
+        operation: &str,
+    ) -> Result<Value> {
+        let url = format!(
+            "{}/{}",
+            self.config.base_url.trim().trim_end_matches('/'),
+            path.trim_start_matches('/')
+        );
+        for attempt in 0..3u32 {
+            let response = match self
+                .client
+                .post(&url)
+                .header(reqwest::header::ACCEPT, "application/json")
+                .bearer_auth(&self.api_key)
+                .json(body)
+                .send()
+                .await
+            {
+                Ok(response) => response,
+                Err(_error) if attempt < 2 => {
+                    tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempt))).await;
+                    continue;
+                }
+                Err(error) => {
+                    return Err(error).with_context(|| format!("AI {operation}请求传输失败"));
+                }
+            };
+
+            let status = response.status();
+            let retry_after = response
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse::<u64>().ok());
+            if (status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error())
+                && attempt < 2
+            {
+                let seconds = retry_after.unwrap_or(2u64.pow(attempt + 1)).min(60);
+                tokio::time::sleep(std::time::Duration::from_secs(seconds)).await;
+                continue;
+            }
+
+            let bytes = match response.bytes().await {
+                Ok(bytes) => bytes,
+                Err(_error) if attempt < 2 => {
+                    tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempt))).await;
+                    continue;
+                }
+                Err(error) => {
+                    return Err(error).with_context(|| format!("AI {operation}响应读取失败"));
+                }
+            };
+
+            if !status.is_success() {
+                let detail = serde_json::from_slice::<Value>(&bytes)
+                    .ok()
+                    .and_then(|value| {
+                        value
+                            .pointer("/error/message")
+                            .and_then(Value::as_str)
+                            .map(str::to_owned)
+                    })
+                    .unwrap_or_else(|| "服务端未返回错误详情".into());
+                return Err(anyhow!("AI {operation}请求失败（HTTP {status}）：{detail}"));
+            }
+
+            match parse_response_bytes(&bytes, operation) {
+                Ok(value) => return Ok(value),
+                Err(_) if attempt < 2 => {
+                    tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempt))).await;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Err(anyhow!("AI {operation}请求未完成"))
     }
 }
 
@@ -122,24 +187,22 @@ impl AiProvider for OpenAiCompatibleProvider {
         for (mime, data) in images.iter().take(4) {
             content.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{}",mime,data),"detail":"low"}}));
         }
-        let response = self.client.post(format!("{}/chat/completions",self.config.base_url.trim_end_matches('/'))).bearer_auth(&self.api_key).json(&json!({"model":self.config.chat_model,"messages":[{"role":"system","content":"你是私人记忆元数据整理助手。只提取标题、时间、情绪与人物/地点/主题标签，不要总结、改写或生成正文，也不得编造未出现的信息。必须从欣喜、宁静、温暖、怀念、勇敢、难过中判断一个最主导的 primaryEmotion；只有记忆确实同时包含其他感受时，才将最多三个不同于主标签的情绪放入 secondaryEmotions，不要为了凑数添加副标签。people 只放人物姓名或明确称谓，places 只放地点，topics 只放事件或主题；三个数组之间不得出现相同标签，也不要用人物名充当主题。仅当原文明确提到记忆发生时间时，将 occurredAt 规范为带时区的 RFC3339；否则返回 null。"},{"role":"user","content":content}],"response_format":{"type":"json_schema","json_schema":schema}})).send().await?;
-        let response = checked_response(response, "记忆分析").await?;
-        let value: Value = response.json().await?;
-        let content = value
-            .pointer("/choices/0/message/content")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("AI 返回缺少内容"))?;
-        serde_json::from_str(content).context("AI 返回结构与约定不符")
+        let body = json!({"model":self.config.chat_model.trim(),"messages":[{"role":"system","content":"你是私人记忆元数据整理助手。只提取标题、情绪与人物/地点/主题标签，不要总结、改写或生成正文，也不得编造未出现的信息。记忆发生时间由用户输入决定，你不得返回或修改时间。必须从欣喜、宁静、温暖、怀念、勇敢、难过中判断一个最主导的 primaryEmotion；只有记忆确实同时包含其他感受时，才将最多三个不同于主标签的情绪放入 secondaryEmotions，不要为了凑数添加副标签。people 只放人物姓名或明确称谓，places 只放地点，topics 只放事件或主题；三个数组之间不得出现相同标签，也不要用人物名充当主题。"},{"role":"user","content":content}],"response_format":{"type":"json_schema","json_schema":schema}});
+        let response = self
+            .post_json_with_retry("chat/completions", &body, "记忆分析")
+            .await?;
+        let content = extract_structured_content(&response, "记忆分析")?;
+        serde_json::from_value(content).context("AI 返回结构与约定不符")
     }
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let value: Value = self
             .client
             .post(format!(
                 "{}/embeddings",
-                self.config.base_url.trim_end_matches('/')
+                self.config.base_url.trim().trim_end_matches('/')
             ))
             .bearer_auth(&self.api_key)
-            .json(&json!({"model":self.config.embedding_model,"input":text}))
+            .json(&json!({"model":self.config.embedding_model.trim(),"input":text}))
             .send()
             .await?
             .error_for_status()?
@@ -162,13 +225,13 @@ impl AiProvider for OpenAiCompatibleProvider {
             .file_name(name.to_string())
             .mime_str(mime)?;
         let form = reqwest::multipart::Form::new()
-            .text("model", self.config.transcription_model.clone())
+            .text("model", self.config.transcription_model.trim().to_owned())
             .part("file", part);
         let value: Value = self
             .client
             .post(format!(
                 "{}/audio/transcriptions",
-                self.config.base_url.trim_end_matches('/')
+                self.config.base_url.trim().trim_end_matches('/')
             ))
             .bearer_auth(&self.api_key)
             .multipart(form)
@@ -201,7 +264,7 @@ impl AiProvider for OpenAiCompatibleProvider {
             "这是最终材料。生成一份完整、克制、温柔而有洞察的时光回响报告。"
         };
         let body = json!({
-            "model": self.config.chat_model,
+            "model": self.config.chat_model.trim(),
             "messages": [
                 {"role":"system","content":format!("你是 Pensieve 的私人时光分析助手。{stage} 只依据材料分析，不编造事实或统计数字；memoryIds 只能使用材料中方括号标明的 ID。人物、地点、主题、情绪轨迹、珍贵片段与变化洞察应彼此区分。treasuredMoments 中的每个片段必须只对应一段原记忆：title 原样使用该记忆的标题，memoryIds 只放该记忆唯一的 ID；不要把多段记忆合并成一个珍贵片段。分批提炼时也必须保留这个一一对应关系。输出语言必须是 {language_name}。")},
                 {"role":"user","content":input}
@@ -210,7 +273,7 @@ impl AiProvider for OpenAiCompatibleProvider {
         });
         let url = format!(
             "{}/chat/completions",
-            self.config.base_url.trim_end_matches('/')
+            self.config.base_url.trim().trim_end_matches('/')
         );
         let mut attempt = 0u32;
         loop {
@@ -273,7 +336,7 @@ mod tests {
     use super::*;
     #[test]
     fn strict_analysis_json_is_validated() {
-        let raw = r#"{"title":"雨天","occurredAt":null,"primaryEmotion":"宁静","secondaryEmotions":["怀念"],"people":[],"places":[],"topics":["日常"],"confidence":0.9}"#;
+        let raw = r#"{"title":"雨天","primaryEmotion":"宁静","secondaryEmotions":["怀念"],"people":[],"places":[],"topics":["日常"],"confidence":0.9}"#;
         let parsed: MemoryAnalysis = serde_json::from_str(raw).unwrap();
         assert_eq!(parsed.primary_emotion, "宁静");
         assert_eq!(parsed.secondary_emotions, vec!["怀念"]);
@@ -287,6 +350,7 @@ mod tests {
             .unwrap();
         assert!(secondary.get("uniqueItems").is_none());
         assert_eq!(secondary.get("maxItems").and_then(Value::as_u64), Some(3));
+        assert!(schema.pointer("/schema/properties/occurredAt").is_none());
     }
 
     #[test]

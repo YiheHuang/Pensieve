@@ -536,12 +536,8 @@ pub async fn analyze_memory(id: String, state: State<'_, AppState>) -> CmdResult
         .map_err(err)?;
     memory.title = analysis.title;
     memory.summary = memory.content.clone();
-    if let Some(occurred_at) = analysis
-        .occurred_at
-        .filter(|value| chrono::DateTime::parse_from_rfc3339(value).is_ok())
-    {
-        memory.occurred_at = occurred_at;
-    }
+    // The occurrence time is owned by the capture/edit form. AI metadata
+    // analysis must never replace the user's chosen time or the capture time.
     memory.emotion = analysis.primary_emotion.clone();
     memory.emotions = std::iter::once(analysis.primary_emotion)
         .chain(analysis.secondary_emotions)

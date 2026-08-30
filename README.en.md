@@ -55,7 +55,7 @@ A memory rarely contains one feeling. Pensieve keeps one primary emotion and up 
 
 ### 🧩 Let AI organize clues—not rewrite your life
 
-Optional AI extracts a title, explicitly stated time, people, places, topics, and emotions. It does not generate a rewritten body or summary. Labels are further normalized and deduplicated locally.
+Optional AI extracts a title, people, places, topics, and emotions. It does not generate a rewritten body or summary, and it never changes the memory time. Time defaults to the Beijing time of the first **Extract** action and changes only when the user edits it in Advanced options or the detail view. Labels are further normalized and deduplicated locally.
 
 ### 🌊 Re-enter through immersive replay
 

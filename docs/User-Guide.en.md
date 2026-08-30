@@ -30,6 +30,8 @@ Pensieve runs as a frameless full-screen application without native Windows chro
 5. Expand **Advanced options** to set a title, Beijing time, primary/secondary emotions, or clues manually.
 6. Select **Extract**.
 
+When time is left untouched, Pensieve uses the Beijing time of the first **Extract** action. Retrying after an error preserves that same submission time, and AI analysis does not participate in changing it.
+
 The wand ritual loops until AI returns a definitive result. Pensieve opens the detail page only after analysis finishes. If a request errors, the draft remains available for another attempt or further editing.
 
 ## 4. AI and compatible endpoints
@@ -44,12 +46,11 @@ Under **Preferences & Protection → AI organization**:
 AI extracts only:
 
 - a title;
-- an occurrence time when explicitly stated in the source;
 - one primary emotion and up to three secondary emotions;
 - people, places, and topic tags;
 - image clues and audio transcripts.
 
-AI does not summarize or rewrite the memory body. Pensieve uses a relay-friendly subset of OpenAI Structured Outputs, followed by local normalization and deduplication.
+AI does not summarize or rewrite the memory body, and it does not modify memory time. Pensieve uses a relay-friendly subset of OpenAI Structured Outputs and accepts common relay responses including compressed bodies, segmented content, and fenced JSON. Temporary transport or response-decoding failures follow a bounded backoff retry. Structured results still receive local normalization and deduplication.
 
 ## 5. Layered emotions
 

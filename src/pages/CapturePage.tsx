@@ -8,7 +8,7 @@ import type { Attachment, MemoryDraft } from '../types'
 import { isDesktop, nativeBridge } from '../services/nativeBridge'
 import { open } from '@tauri-apps/plugin-dialog'
 import { playMemoryChime } from '../services/sound'
-import { beijingDateTimeLocal } from '../utils/date'
+import { beijingDateTimeLocal, resolveCaptureOccurredAt } from '../utils/date'
 import { emotionLabel, useI18n } from '../i18n'
 import { useAppStore } from '../stores/appStore'
 
@@ -17,15 +17,19 @@ const emotions = ['欣喜', '宁静', '温暖', '怀念', '勇敢', '难过']
 export function CapturePage() {
   const { t, language } = useI18n()
   const aiEnabled = useAppStore(state => state.ai.enabled)
-  const navigate = useNavigate(); const queryClient = useQueryClient(); const inputRef = useRef<HTMLInputElement>(null); const recorderRef = useRef<MediaRecorder | null>(null); const chunksRef = useRef<Blob[]>([]); const pendingIdRef = useRef<string | null>(null)
-  const [content, setContent] = useState(''); const [title, setTitle] = useState(''); const [date, setDate] = useState(() => beijingDateTimeLocal()); const [selectedEmotions, setSelectedEmotions] = useState<string[]>([]); const [tags, setTags] = useState<string[]>([]); const [tag, setTag] = useState(''); const [attachments, setAttachments] = useState<Attachment[]>([]); const [recording, setRecording] = useState(false); const [processing, setProcessing] = useState(false); const [advanced, setAdvanced] = useState(false)
+  const navigate = useNavigate(); const queryClient = useQueryClient(); const inputRef = useRef<HTMLInputElement>(null); const recorderRef = useRef<MediaRecorder | null>(null); const chunksRef = useRef<Blob[]>([]); const pendingIdRef = useRef<string | null>(null); const submittedAtRef = useRef<string | undefined>(undefined)
+  const [content, setContent] = useState(''); const [title, setTitle] = useState(''); const [date, setDate] = useState(() => beijingDateTimeLocal()); const [dateTouched, setDateTouched] = useState(false); const [selectedEmotions, setSelectedEmotions] = useState<string[]>([]); const [tags, setTags] = useState<string[]>([]); const [tag, setTag] = useState(''); const [attachments, setAttachments] = useState<Attachment[]>([]); const [recording, setRecording] = useState(false); const [processing, setProcessing] = useState(false); const [advanced, setAdvanced] = useState(false)
   useEffect(() => {
     if (!processing) return
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = previous }
   }, [processing])
-  const draft = (): MemoryDraft => ({ title, content, occurredAt: date, emotion: selectedEmotions[0], emotions: selectedEmotions, tags, attachments })
+  const draft = (): MemoryDraft => {
+    const occurredAt = resolveCaptureOccurredAt(date, dateTouched, submittedAtRef.current)
+    submittedAtRef.current = occurredAt
+    return { title, content, occurredAt, emotion: selectedEmotions[0], emotions: selectedEmotions, tags, attachments }
+  }
   const mutation = useMutation({
     mutationFn: async (memoryDraft: MemoryDraft) => {
       let id = pendingIdRef.current
@@ -62,7 +66,7 @@ export function CapturePage() {
         <summary><span><WandSparkles /> {t('水下线索', 'Beneath the surface')}</span><ChevronDown /></summary>
         <div className="advanced-grid">
           <label>{t('记忆之名', 'Memory name')}<input value={title} onChange={e => setTitle(e.target.value)} /></label>
-          <label><span><CalendarDays size={15} /> {t('时光', 'Time')}</span><input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} /></label>
+          <label><span><CalendarDays size={15} /> {t('时光', 'Time')}</span><input type="datetime-local" value={date} onChange={e => { setDate(e.target.value); setDateTouched(true) }} /></label>
           <div className="advanced-field"><span>{t('情绪', 'Emotions')}</span><div className="emotion-picker">{emotions.map(item => { const index = selectedEmotions.indexOf(item); return <button className={`${index >= 0 ? 'active' : ''} ${index === 0 ? 'primary-emotion' : ''}`} onClick={() => toggleEmotion(item)} key={item}><i />{emotionLabel(item, language)}{index >= 0 && <small>{index === 0 ? t('主', 'Main') : t('副', 'Sub')}</small>}</button> })}</div></div>
           <div className="advanced-field"><span>{t('线索', 'Clues')}</span><div className="tag-input"><input aria-label={t('加入线索', 'Add a clue')} value={tag} onChange={e => setTag(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())} /><button onClick={addTag}>＋</button></div><div className="selected-tags">{tags.map(item => <button key={item} onClick={() => setTags(tags.filter(value => value !== item))}>#{item} ×</button>)}</div></div>
         </div>

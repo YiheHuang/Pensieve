@@ -1,3 +1,5 @@
+#[path = "../src/ai_response.rs"]
+mod ai_response;
 #[path = "../src/crypto.rs"]
 mod crypto;
 #[path = "../src/domain.rs"]
