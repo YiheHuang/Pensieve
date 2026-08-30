@@ -1,10 +1,10 @@
-# Pensieve v0.5.0 User Guide
+# Pensieve v0.6.0 User Guide
 
 **English** · [简体中文使用手册](使用手册.md) · [Project home](../README.en.md)
 
 ## 1. Install and begin
 
-1. Download `Pensieve-Setup-0.5.0.exe` from the [v0.5.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.5.0).
+1. Download `Pensieve-Setup-0.6.0.exe` from the [v0.6.0 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.6.0).
 2. Run the installer and launch Pensieve.
 3. Create and confirm a **4–8 digit PIN**.
 4. Enter the name Pensieve should use for you. You can change it later under Preferences & Protection.
@@ -135,9 +135,12 @@ The interface changes immediately. Pensieve never translates or modifies your me
 
 1. Select **Restore from backup**.
 2. Choose the `.pensieve` file and enter its backup password.
-3. After validation, unlock with the original vault PIN.
+3. After validation, Pensieve returns to the lock screen.
+4. Unlock with the **original PIN of the source vault**. A PIN created for an empty vault on the destination computer applies only before the import; the restored source vault PIN takes over afterward.
 
-A backup includes the memory database, structured metadata, encrypted media, and Time Echo archives. It excludes the AI API key.
+A v0.6.0 backup includes the memory database, structured metadata, encrypted media, Time Echo archives, and the encrypted parameters required for cross-device unlocking. It excludes the AI API key.
+
+> Backups exported by v0.5.0 and earlier omit the parameters needed for a cross-device unlock. Before moving between computers, update Pensieve on the source computer and export a fresh backup. The current release detects these older archives before writing to the destination vault, preserving its existing data.
 
 ## 13. Privacy habits
 

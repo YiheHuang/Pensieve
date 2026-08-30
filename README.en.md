@@ -100,7 +100,7 @@ It can also serve as a travel journal, family-memory archive, growth record, ins
 ## Start using Pensieve
 
 1. Open the [latest release](https://github.com/YiheHuang/Pensieve/releases/latest).
-2. Download and run `Pensieve-Setup-0.5.0.exe`.
+2. Download and run `Pensieve-Setup-0.6.0.exe`.
 3. Create a 4–8 digit PIN and choose how Pensieve should address you.
 4. Open **Extract** and leave your first memory.
 5. Optional: configure your OpenAI-compatible service under **Preferences & Protection**.
@@ -112,7 +112,8 @@ For installation, AI configuration, editing, backup, and recovery, read the comp
 - Memory text, structured metadata, and attachments are encrypted on the Windows desktop.
 - The PIN derives the vault key through Argon2id; AI API keys stay in Windows Credential Manager.
 - AI is off by default and contacts only the compatible service explicitly configured by the user.
-- `.pensieve` backups use a separate password, include memories, attachments, and Time Echo archives, and exclude the AI API key.
+- `.pensieve` backups use a separate password and include memories, attachments, Time Echo archives, and the encrypted parameters required for cross-device unlocking. AI API keys remain excluded.
+- After restoring on another computer, unlock with the **original PIN of the source vault**. A temporary PIN created on the destination computer does not replace the source vault PIN.
 - Vault locking and permanent deletion keep control with the person who owns the memories.
 
 > Pensieve is a personal memory tool, not a substitute for professional medical, mental-health, or archival services. Keep independent backups of important material.

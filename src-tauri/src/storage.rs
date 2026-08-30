@@ -339,7 +339,26 @@ impl Vault {
         self.with_key(|_| {
             self.connection()?.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
             let mut cursor=Cursor::new(Vec::new());
-            { let mut zip=zip::ZipWriter::new(&mut cursor); let options=zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated); zip.start_file("manifest.json",options)?; zip.write_all(br#"{"format":"pensieve-archive","version":2,"includes":["memories","attachments","timeEchoReports"]}"#)?; zip.start_file("pensieve.db",options)?; zip.write_all(&fs::read(&self.db_path)?)?; for entry in fs::read_dir(&self.attachments_path)? { let entry=entry?; if entry.file_type()?.is_file(){zip.start_file(format!("attachments/{}",entry.file_name().to_string_lossy()),options)?; zip.write_all(&fs::read(entry.path())?)?;} } zip.finish()?; }
+            {
+                let mut zip=zip::ZipWriter::new(&mut cursor);
+                let options=zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+                zip.start_file("manifest.json",options)?;
+                zip.write_all(br#"{"format":"pensieve-archive","version":3,"includes":["memories","attachments","timeEchoReports","vaultSalt"]}"#)?;
+                zip.start_file("pensieve.db",options)?;
+                zip.write_all(&fs::read(&self.db_path)?)?;
+                // The encrypted database and its PIN derivation salt must
+                // travel together for cross-device restoration.
+                zip.start_file("vault.salt",options)?;
+                zip.write_all(&fs::read(&self.salt_path)?)?;
+                for entry in fs::read_dir(&self.attachments_path)? {
+                    let entry=entry?;
+                    if entry.file_type()?.is_file(){
+                        zip.start_file(format!("attachments/{}",entry.file_name().to_string_lossy()),options)?;
+                        zip.write_all(&fs::read(entry.path())?)?;
+                    }
+                }
+                zip.finish()?;
+            }
             let salt = random_salt(); let key = derive_key(password, &salt)?; let encrypted = encrypt(&key, &cursor.into_inner())?;
             let envelope = serde_json::json!({"format":"pensieve-backup","version":1,"salt":STANDARD.encode(salt),"payload":STANDARD.encode(encrypted)});
             fs::write(target, serde_json::to_vec(&envelope)?)?; Ok(())
@@ -368,6 +387,7 @@ impl Vault {
         let decrypted = decrypt(&key, &payload)?;
         let mut archive = zip::ZipArchive::new(Cursor::new(decrypted))?;
         let mut db = None;
+        let mut vault_salt = None;
         let mut attachments = Vec::new();
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
@@ -376,6 +396,8 @@ impl Vault {
             file.read_to_end(&mut data)?;
             if name == "pensieve.db" {
                 db = Some(data)
+            } else if name == "vault.salt" {
+                vault_salt = Some(data)
             } else if let Some(file_name) = name
                 .strip_prefix("attachments/")
                 .filter(|n| !n.contains('/') && !n.contains('\\'))
@@ -384,16 +406,63 @@ impl Vault {
             }
         }
         let db = db.ok_or_else(|| anyhow!("备份中缺少记忆库"))?;
+        if vault_salt.as_ref().is_some_and(|salt| salt.len() != 16) {
+            return Err(anyhow!("备份中的记忆库盐值已损坏"));
+        }
         let validation = self.db_path.with_extension("restore-check");
         fs::write(&validation, &db)?;
-        let valid = Connection::open(&validation)
-            .and_then(|c| c.query_row("SELECT count(*) FROM memories", [], |r| r.get::<_, i64>(0)))
-            .is_ok();
-        let _ = fs::remove_file(&validation);
+        let validation_connection = Connection::open(&validation);
+        let valid = validation_connection
+            .as_ref()
+            .ok()
+            .and_then(|connection| {
+                connection
+                    .query_row("SELECT count(*) FROM memories", [], |row| {
+                        row.get::<_, i64>(0)
+                    })
+                    .ok()
+            })
+            .is_some();
         if !valid {
+            drop(validation_connection);
+            let _ = fs::remove_file(&validation);
             return Err(anyhow!("备份中的记忆库已损坏"));
         }
+
+        // v1/v2 archives did not include vault.salt. They are still accepted
+        // on the same vault when the active key validates their check value.
+        // A cross-device import is stopped before replacing any local data.
+        if vault_salt.is_none() {
+            let check = validation_connection.as_ref().ok().and_then(|connection| {
+                connection
+                    .query_row(
+                        "SELECT value FROM metadata WHERE key='vault_check'",
+                        [],
+                        |row| row.get::<_, Vec<u8>>(0),
+                    )
+                    .ok()
+            });
+            let matches_current_vault = check
+                .as_deref()
+                .map(|check| {
+                    self.with_key(|key| Ok(decrypt(key, check)? == CHECK_VALUE))
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
+            if !matches_current_vault {
+                drop(validation_connection);
+                let _ = fs::remove_file(&validation);
+                return Err(anyhow!(
+                    "这份旧备份缺少跨设备解锁信息。请在原电脑升级 Pensieve 后重新导出"
+                ));
+            }
+        }
+        drop(validation_connection);
+        let _ = fs::remove_file(&validation);
         fs::write(&self.db_path, db)?;
+        if let Some(vault_salt) = vault_salt {
+            fs::write(&self.salt_path, vault_salt)?;
+        }
         for suffix in ["-wal", "-shm"] {
             let _ = fs::remove_file(format!("{}{}", self.db_path.display(), suffix));
         }
@@ -687,7 +756,63 @@ mod tests {
         let mut archive = zip::ZipArchive::new(Cursor::new(archive_bytes)).unwrap();
         let expected = format!("attachments/{}", stored_name.to_string_lossy());
         assert!(archive.by_name(&expected).is_ok());
+        assert!(archive.by_name("vault.salt").is_ok());
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn backup_restores_across_devices_with_the_source_pin() {
+        let source_root =
+            std::env::temp_dir().join(format!("pensieve-source-test-{}", Uuid::new_v4()));
+        let destination_root =
+            std::env::temp_dir().join(format!("pensieve-destination-test-{}", Uuid::new_v4()));
+        let backup = std::env::temp_dir().join(format!(
+            "pensieve-transfer-test-{}.pensieve",
+            Uuid::new_v4()
+        ));
+
+        let source = Vault::new(&source_root).unwrap();
+        source.initialize("2468").unwrap();
+        source
+            .save(&Memory {
+                id: "transferred-memory".into(),
+                title: "跨设备回响".into(),
+                content: "这段记忆应在另一台电脑上被原 PIN 唤醒".into(),
+                summary: "".into(),
+                occurred_at: "2026-08-30T00:00:00Z".into(),
+                created_at: "2026-08-30T00:00:00Z".into(),
+                updated_at: "2026-08-30T00:00:00Z".into(),
+                emotion: "宁静".into(),
+                emotions: vec!["宁静".into()],
+                emotion_color: "#fff".into(),
+                status: "active".into(),
+                tags: vec![],
+                attachments: vec![],
+                ai_status: "idle".into(),
+                favorite: false,
+            })
+            .unwrap();
+        source.export_backup("backup-password", &backup).unwrap();
+
+        let destination = Vault::new(&destination_root).unwrap();
+        destination.initialize("1357").unwrap();
+        destination
+            .restore_backup("backup-password", &backup)
+            .unwrap();
+        assert!(destination.unlock("1357").is_err());
+        destination.unlock("2468").unwrap();
+        assert_eq!(
+            destination
+                .get("transferred-memory")
+                .unwrap()
+                .unwrap()
+                .content,
+            "这段记忆应在另一台电脑上被原 PIN 唤醒"
+        );
+
+        let _ = fs::remove_dir_all(source_root);
+        let _ = fs::remove_dir_all(destination_root);
+        let _ = fs::remove_file(backup);
     }
 
     #[test]
