@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CalendarDays, Heart, MapPin, Pencil, Play, RefreshCw, Sparkles, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Heart, MapPin, Pencil, Play, RefreshCw, Sparkles, Trash2, UserRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { memoryRepository } from '../services/memoryRepository'
@@ -12,12 +12,31 @@ import { isDesktop, nativeBridge } from '../services/nativeBridge'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { Attachment } from '../types'
 import { beijingDateTimeLocal, beijingInputToIso } from '../utils/date'
+import { getMemoryNeighbors } from '../utils/memoryNavigation'
 
 export function MemoryDetailPage() {
   const { t, locale, language, isEnglish } = useI18n()
   const { id = '' } = useParams(); const navigate = useNavigate(); const queryClient = useQueryClient(); const fileRef = useRef<HTMLInputElement>(null); const [replay, setReplay] = useState(false); const [editing, setEditing] = useState(false); const [content, setContent] = useState(''); const [occurredAt, setOccurredAt] = useState('')
   const { data: memory, isLoading } = useQuery({ queryKey: ['memory', id], queryFn: () => memoryRepository.get(id) })
   const { data: all = [] } = useQuery({ queryKey: ['memories'], queryFn: () => memoryRepository.list() })
+  const neighbors = getMemoryNeighbors(all, id)
+  const navigateToMemory = useCallback((target: typeof memory) => {
+    if (!target) return
+    queryClient.setQueryData(['memory', target.id], target)
+    navigate(`/memory/${target.id}`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [navigate, queryClient])
+  useEffect(() => {
+    if (editing || replay) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, audio, video, [contenteditable="true"]')) return
+      if (event.key === 'ArrowLeft' && neighbors.previous) { event.preventDefault(); navigateToMemory(neighbors.previous) }
+      else if (event.key === 'ArrowRight' && neighbors.next) { event.preventDefault(); navigateToMemory(neighbors.next) }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [editing, navigateToMemory, neighbors.next, neighbors.previous, replay])
   const refresh = async () => { await Promise.all([queryClient.invalidateQueries({ queryKey: ['memory', id] }), queryClient.invalidateQueries({ queryKey: ['memories'] })]) }
   const save = useMutation({ mutationFn: () => memoryRepository.update(id, { content: content.trim(), summary: content.trim(), occurredAt: beijingInputToIso(occurredAt), aiStatus: 'idle' }), onSuccess: async () => { await refresh(); setEditing(false) } })
   const reanalyze = useMutation({ mutationFn: () => memoryRepository.analyze(id), onSuccess: refresh })
@@ -38,9 +57,10 @@ export function MemoryDetailPage() {
   const related = all.filter(m => m.id !== memory.id && m.tags.some(t => memory.tags.some(mt => mt.label === t.label))).slice(0, 2)
   const memoryEmotions = memoryEmotionValues(memory)
   return <div className="page detail-page">
-    {replay && <ImmersiveReplay memory={memory} onClose={() => setReplay(false)} />}
+    {replay && <ImmersiveReplay memory={memory} previousMemory={neighbors.previous} nextMemory={neighbors.next} onNavigateMemory={navigateToMemory} onClose={() => setReplay(false)} />}
     <header className="detail-nav"><button onClick={() => navigate(-1)}><ArrowLeft /> {t('返回水面', 'Return to surface')}</button><div><button aria-label={memory.favorite ? t('移出最珍贵记忆', 'Remove from treasured') : t('加入最珍贵记忆', 'Add to treasured')} className={memory.favorite ? 'favorite-active' : ''} onClick={async () => { await memoryRepository.update(id, { favorite: !memory.favorite }); await Promise.all([queryClient.invalidateQueries({ queryKey: ['memory', id] }), queryClient.invalidateQueries({ queryKey: ['memories'] })]) }}><Heart fill={memory.favorite ? 'currentColor' : 'none'} /></button><button disabled={reanalyze.isPending} title={t('重新分析标题、情绪与线索', 'Reanalyze title, emotions and clues')} onClick={() => reanalyze.mutate()}><RefreshCw className={reanalyze.isPending ? 'spin' : ''} /></button><button title={t('修改正文与时间', 'Edit text and time')} onClick={() => { setContent(memory.content); setOccurredAt(beijingDateTimeLocal(new Date(memory.occurredAt))); setEditing(true) }}><Pencil /></button><button onClick={async () => { await memoryRepository.remove(id); navigate('/timeline') }}><Trash2 /></button></div></header>
     <article className="memory-detail"><input ref={fileRef} hidden type="file" multiple accept="image/*,audio/*,video/*" onChange={event => void addAttachments(event.target.files)} /><div className="detail-hero"><span className="emotion-large" style={{ '--emotion': memory.emotionColor } as React.CSSProperties}><i /></span><div className="eyebrow">A MEMORY FROM YOUR PENSIEVE</div><h1>{memory.title}</h1><div className="detail-meta"><span><CalendarDays /> {format(new Date(memory.occurredAt), isEnglish ? 'MMMM d, yyyy · EEEE · HH:mm' : 'yyyy年M月d日 EEEE · HH:mm', { locale })}</span><span className="detail-emotions">{memoryEmotions.map((emotion, index) => <span className={`emotion-pill ${index === 0 ? 'primary' : 'secondary'}`} key={emotion}><i style={{ background: index === 0 ? memory.emotionColor : undefined }} />{emotionLabel(emotion, language)}<small>{index === 0 ? t('主', 'Main') : t('副', 'Sub')}</small></span>)}</span></div><button className="replay-button" onClick={() => setReplay(true)}><Play fill="currentColor" /> {t('沉浸回放', 'Immersive replay')}</button></div>
+      {neighbors.total > 1 && <nav className="memory-sequence-nav" aria-label={t('相邻记忆', 'Adjacent memories')}><button disabled={!neighbors.previous} onClick={() => navigateToMemory(neighbors.previous)}><ChevronLeft /><span><small>{t('上一缕', 'Previous')}</small><strong>{neighbors.previous?.title || t('水面之初', 'First ripple')}</strong></span></button><em>{neighbors.position} / {neighbors.total}<kbd>←</kbd><kbd>→</kbd></em><button disabled={!neighbors.next} onClick={() => navigateToMemory(neighbors.next)}><span><small>{t('下一缕', 'Next')}</small><strong>{neighbors.next?.title || t('水面之末', 'Last ripple')}</strong></span><ChevronRight /></button></nav>}
       <AttachmentGallery attachments={memory.attachments} editing={editing} onAdd={() => isDesktop() ? void addAttachments() : fileRef.current?.click()} onRemove={attachment => void removeAttachment(attachment)} onRename={(attachment, name) => void renameAttachment(attachment, name)} /><section className="memory-story"><div className="story-mark">✦</div>{editing ? <div className="edit-box"><label className="memory-time-editor"><span><CalendarDays /> {t('记忆发生时间 · 北京时间', 'Memory time · Beijing time')}</span><input type="datetime-local" value={occurredAt} onChange={event => setOccurredAt(event.target.value)} /></label><textarea value={content} onChange={e => setContent(e.target.value)} placeholder={t('可以保留文字，也可以只留下附件。', 'Keep text, or leave only the attachments.')} /><div><button onClick={() => setEditing(false)}>{t('取消', 'Cancel')}</button><button className="primary-button" disabled={(!content.trim() && !memory.attachments.length) || !occurredAt || save.isPending} onClick={() => save.mutate()}>{save.isPending ? t('正在保存…', 'Saving…') : t('保存正文与时间', 'Save text and time')}</button></div></div> : <p>{memory.content || t('这段记忆由附件承载。', 'This memory lives in its attachments.')}</p>}</section>
       <section className="memory-clues"><h2>{t('水面留下的线索', 'Clues left on the surface')}</h2><div>{memory.tags.map(tag => <span key={tag.id}>{tag.kind === 'person' ? <UserRound /> : tag.kind === 'place' ? <MapPin /> : <Sparkles />}<b>{tag.label}</b><small>{tag.source === 'ai' ? t('AI 识别', 'AI detected') : t('你的标记', 'Your tag')}</small></span>)}</div></section>
       {!!related.length && <section className="related"><div className="section-title"><div><span className="eyebrow">CONNECTED WHISPERS</span><h2>{t('与它遥相呼应', 'Connected echoes')}</h2></div></div><div className="cards-grid">{related.map(m => <MemoryCard key={m.id} memory={m} />)}</div></section>}

@@ -59,7 +59,7 @@ Optional AI extracts a title, people, places, topics, and emotions. It does not 
 
 ### 🌊 Re-enter through immersive replay
 
-Describe a moment naturally in **Immerse**, or filter by emotion, date, and media. During replay, images, sound, and original prose surface inside a deep-water environment. A dim, cool memory filter keeps visual media from overpowering the words.
+Describe a moment naturally in **Immerse**, or filter by emotion, date, and media. From either the detail view or immersive replay, move through adjacent memories with the mouse or arrow keys. Switching inside replay stays beneath the surface and glides directly into the next memory. Media and prose dissolve into irregular light, mist, and ink-like currents; text-only memories use the full scene without an empty media region.
 
 ### ✨ Write upon the water
 
@@ -100,7 +100,7 @@ It can also serve as a travel journal, family-memory archive, growth record, ins
 ## Start using Pensieve
 
 1. Open the [latest release](https://github.com/YiheHuang/Pensieve/releases/latest).
-2. Download and run `Pensieve-Setup-0.6.0.exe`.
+2. Download and run `Pensieve-Setup-0.7.0.exe`.
 3. Create a 4–8 digit PIN and choose how Pensieve should address you.
 4. Open **Extract** and leave your first memory.
 5. Optional: configure your OpenAI-compatible service under **Preferences & Protection**.
