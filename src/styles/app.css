@@ -289,5 +289,11 @@ html,body,#root{background:radial-gradient(circle at 74% -8%,rgba(63,112,145,.24
 [data-reduce-motion=true] .memory-writing-surface:after,[data-reduce-motion=true] .water-input-shell:after,[data-reduce-motion=true] .water-input-compact:after{animation:none!important}
 @media(prefers-reduced-motion:reduce){.memory-writing-surface:after,.water-input-shell:after,.water-input-compact:after{animation:none!important}}
 
+/* Personal media keeps its real color and complete aspect ratio in the water. */
+.immersive-media-shell:after{display:none}
+.immersive-media-shell img,.immersive-media-shell video{width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;mask-image:none;filter:none;box-shadow:0 18px 70px rgba(0,8,14,.25);animation:mediaSurface .7s ease both}
+.immersive-copy p{white-space:break-spaces;overflow-wrap:anywhere}
+@keyframes mediaSurface{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
+
 @media(max-width:1050px){.daily-echo{display:none}}
 @media(max-width:760px){.capture-card.simplified .capture-main{padding:18px}.capture-card.simplified .capture-main textarea{height:255px;padding:16px}.memory-writing-surface .capture-toolbar{margin-inline:13px}.memory-writing-surface .attachment-strip{padding-inline:13px}}

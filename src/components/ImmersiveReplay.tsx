@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, Pause, Sparkles, Volume2 } from 'lucide-react'
 import type { Attachment, Memory } from '../types'
@@ -6,7 +6,7 @@ import { isDesktop, nativeBridge } from '../services/nativeBridge'
 import { playMemoryChime } from '../services/sound'
 import { emotionLabel, memoryEmotionValues, useI18n } from '../i18n'
 
-function ImmersiveMedia({ attachment, onEnded, loadingLabel }: { attachment: Attachment; onEnded: () => void; loadingLabel: string }) {
+function ImmersiveMedia({ attachment, onEnded, loadingLabel, imageLabel }: { attachment: Attachment; onEnded: () => void; loadingLabel: string; imageLabel: string }) {
   const [src, setSrc] = useState(attachment.url)
   useEffect(() => {
     let active = true
@@ -18,9 +18,14 @@ function ImmersiveMedia({ attachment, onEnded, loadingLabel }: { attachment: Att
     return () => { active = false }
   }, [attachment])
   if (!src) return <div className="immersive-loading"><Sparkles /><span>{loadingLabel}</span></div>
-  if (attachment.kind === 'image') return <img src={src} alt="" />
+  if (attachment.kind === 'image') return <img src={src} alt={imageLabel} />
   if (attachment.kind === 'video') return <video src={src} autoPlay muted controls onEnded={onEnded} />
   return <div className="immersive-audio"><Volume2 /><audio src={src} autoPlay controls onEnded={onEnded} />{attachment.transcript && <p>{attachment.transcript}</p>}</div>
+}
+
+export function ImmersiveProse({ children }: { children: string }) {
+  const lines = children.split(/\r\n|\r|\n/)
+  return <p>{lines.map((line, index) => <Fragment key={`${index}-${line}`}>{line}{index < lines.length - 1 && <br />}</Fragment>)}</p>
 }
 
 interface ImmersiveReplayProps {
@@ -77,12 +82,12 @@ export function ImmersiveReplay({ memory, previousMemory, nextMemory, onNavigate
       {fragments.length ? <>
         <div className="immersive-media-shell">
           <div className="immersive-halo" />
-          <ImmersiveMedia key={fragments[activeIndex].id} attachment={fragments[activeIndex]} loadingLabel={t('正在凝聚这一片记忆…', 'Gathering this fragment…')} onEnded={() => move(1)} />
+          <ImmersiveMedia key={fragments[activeIndex].id} attachment={fragments[activeIndex]} imageLabel={memory.title} loadingLabel={t('正在凝聚这一片记忆…', 'Gathering this fragment…')} onEnded={() => move(1)} />
         </div>
-        <div className="immersive-copy"><span>{emotions}</span><h1>{memory.title}</h1><p>{memory.content}</p></div>
+        <div className="immersive-copy"><span>{emotions}</span><h1>{memory.title}</h1><ImmersiveProse>{memory.content}</ImmersiveProse></div>
       </> : <div className="immersive-text-current">
         <div className="immersive-text-ripples"><i /><i /><i /></div>
-        <div className="immersive-copy"><span>{emotions}</span><h1>{memory.title}</h1><p>{memory.content}</p></div>
+        <div className="immersive-copy"><span>{emotions}</span><h1>{memory.title}</h1><ImmersiveProse>{memory.content}</ImmersiveProse></div>
       </div>}
       {fragments.length > 1 && <nav><button onClick={() => move(-1)}><ChevronLeft /></button><div>{fragments.map((item, i) => <button aria-label={t(`查看片段 ${i + 1}`, `View fragment ${i + 1}`)} className={i === activeIndex ? 'active' : ''} onClick={() => setIndex(i)} key={item.id} />)}</div><button onClick={() => move(1)}><ChevronRight /></button></nav>}
     </main>

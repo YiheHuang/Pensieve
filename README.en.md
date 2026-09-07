@@ -100,7 +100,7 @@ It can also serve as a travel journal, family-memory archive, growth record, ins
 ## Start using Pensieve
 
 1. Open the [latest release](https://github.com/YiheHuang/Pensieve/releases/latest).
-2. Download and run `Pensieve-Setup-0.7.0.exe`.
+2. Download and run `Pensieve-Setup-0.7.1.exe`.
 3. Create a 4–8 digit PIN and choose how Pensieve should address you.
 4. Open **Extract** and leave your first memory.
 5. Optional: configure your OpenAI-compatible service under **Preferences & Protection**.

@@ -100,7 +100,7 @@ Pensieve 适合：
 ## 开始使用
 
 1. 前往 [最新 Release](https://github.com/YiheHuang/Pensieve/releases/latest)。
-2. 下载并运行 `Pensieve-Setup-0.7.0.exe`。
+2. 下载并运行 `Pensieve-Setup-0.7.1.exe`。
 3. 创建 4–8 位数字 PIN，并填写你的称呼。
 4. 进入 **提取**，写下第一段记忆。
 5. 如需智能整理，在 **偏好与守护** 中配置你的 OpenAI 兼容服务。
