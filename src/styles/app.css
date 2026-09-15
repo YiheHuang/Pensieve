@@ -297,3 +297,31 @@ html,body,#root{background:radial-gradient(circle at 74% -8%,rgba(63,112,145,.24
 
 @media(max-width:1050px){.daily-echo{display:none}}
 @media(max-width:760px){.capture-card.simplified .capture-main{padding:18px}.capture-card.simplified .capture-main textarea{height:255px;padding:16px}.memory-writing-surface .capture-toolbar{margin-inline:13px}.memory-writing-surface .attachment-strip{padding-inline:13px}}
+
+/* Media and prose occupy separate currents so even tall portraits remain inside the viewport. */
+.immersive-replay>main.with-media{box-sizing:border-box;display:grid;grid-template-rows:minmax(0,1fr) auto auto;align-content:stretch;align-items:center;justify-items:center;gap:12px;width:100%;height:100dvh;min-height:0;padding:72px max(9vw,80px) 50px;overflow:hidden}
+.immersive-replay>main.with-media .immersive-media-shell{grid-row:1;width:min(72vw,1040px);height:100%;min-height:0;max-height:540px;margin:0;place-self:center;overflow:visible}
+.immersive-replay>main.with-media .immersive-media-shell img,.immersive-replay>main.with-media .immersive-media-shell video{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:100%;max-height:100%;margin:auto;object-fit:contain}
+.immersive-replay>main.with-media .immersive-copy{grid-row:2;align-self:end;width:min(68vw,900px);max-height:min(27dvh,220px);min-height:0;margin:0;padding:12px 5vw 0;isolation:isolate}
+.immersive-replay>main.with-media .immersive-copy:before{inset:-28px -8vw -18px;background:radial-gradient(ellipse at 50% 38%,rgba(2,15,25,.9) 0,rgba(3,18,29,.58) 46%,transparent 76%);filter:blur(17px)}
+.immersive-replay>main.with-media .immersive-copy p{max-height:min(17dvh,118px);overscroll-behavior:contain}
+.immersive-replay>main.with-media>nav{grid-row:3;margin-top:0}
+
+@media(max-width:760px){
+  .immersive-replay>main.with-media{gap:8px;padding:64px 5vw 46px}
+  .immersive-replay>main.with-media .immersive-media-shell{width:94vw;height:100%;max-height:none}
+  .immersive-replay>main.with-media .immersive-copy{width:90vw;max-height:min(29dvh,190px);margin:0;padding:10px 14px 0}
+  .immersive-replay>main.with-media .immersive-copy h1{font-size:clamp(17px,5.2vw,23px)}
+  .immersive-replay>main.with-media .immersive-copy p{max-height:min(15dvh,102px);font-size:12px;line-height:1.85}
+}
+
+@media(max-height:700px){
+  .immersive-replay>header{padding:14px 22px}
+  .immersive-replay>footer{bottom:8px}
+  .immersive-replay>main.with-media{gap:7px;padding-top:56px;padding-bottom:34px}
+  .immersive-replay>main.with-media .immersive-media-shell{max-height:none}
+  .immersive-replay>main.with-media .immersive-copy{max-height:min(30dvh,168px);padding-top:7px}
+  .immersive-replay>main.with-media .immersive-copy span{margin-bottom:3px}
+  .immersive-replay>main.with-media .immersive-copy h1{margin-bottom:4px;font-size:clamp(16px,2.6vw,22px)}
+  .immersive-replay>main.with-media .immersive-copy p{max-height:min(15dvh,82px);font-size:12px;line-height:1.75}
+}

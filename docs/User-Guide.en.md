@@ -1,10 +1,10 @@
-# Pensieve v0.7.1 User Guide
+# Pensieve v0.7.2 User Guide
 
 **English** · [简体中文使用手册](使用手册.md) · [Project home](../README.en.md)
 
 ## 1. Install and begin
 
-1. Download `Pensieve-Setup-0.7.1.exe` from the [v0.7.1 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.7.1).
+1. Download `Pensieve-Setup-0.7.2.exe` from the [v0.7.2 release](https://github.com/YiheHuang/Pensieve/releases/tag/v0.7.2).
 2. Run the installer and launch Pensieve.
 3. Create and confirm a **4–8 digit PIN**.
 4. Enter the name Pensieve should use for you. You can change it later under Preferences & Protection.
@@ -79,7 +79,7 @@ After saving, the detail view, date filters, and gallery ordering update togethe
 - Results consider the original text, title, time, emotions, and clues.
 - In a detail view, use the adjacent-memory buttons or keyboard `←` and `→` to follow the Gallery's chronological order.
 - Inside **Immersive replay**, the mouse or arrow keys move directly to an adjacent memory while the underwater scene remains continuous. The entry ritual and sound play only once; `Esc` returns to the current detail view.
-- Memories with media dissolve images, sound, and prose into one underwater current. Photos and videos retain their original colors and aspect ratios and remain as complete as the available space allows.
+- Memories with media dissolve images, sound, and prose into one underwater current. Photos and videos retain their original colors and aspect ratios, scale completely inside a dedicated underwater region, and never cover the prose.
 - Authored line breaks and blank lines remain intact in immersive prose.
 - Text-only memories use the entire immersive scene without an empty image or video region. Irregular mist, ribbons, and diffusing ink remain compatible with Reduce motion.
 
@@ -142,7 +142,7 @@ The interface changes immediately. Pensieve never translates or modifies your me
 3. After validation, Pensieve returns to the lock screen.
 4. Unlock with the **original PIN of the source vault**. A PIN created for an empty vault on the destination computer applies only before the import; the restored source vault PIN takes over afterward.
 
-A v0.7.1 backup includes the memory database, structured metadata, encrypted media, Time Echo archives, and the encrypted parameters required for cross-device unlocking. It excludes the AI API key.
+A v0.7.2 backup includes the memory database, structured metadata, encrypted media, Time Echo archives, and the encrypted parameters required for cross-device unlocking. It excludes the AI API key.
 
 > Backups exported by v0.5.0 and earlier omit the parameters needed for a cross-device unlock. Before moving between computers, update Pensieve on the source computer and export a fresh backup. The current release detects these older archives before writing to the destination vault, preserving its existing data.
 

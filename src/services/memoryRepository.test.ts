@@ -79,6 +79,7 @@ describe('memoryRepository', () => {
   })
 
   it('新版备份包含档案库，旧版备份仍可导入', async () => {
+    await memoryRepository.create({ content: '用于验证档案备份的一段记忆。', occurredAt: '2026-08-15T18:00' })
     const memories = await memoryRepository.list('active')
     const report = await timeEchoRepository.generate({ fromDate: '2026-08-01', toDate: '2026-08-31', language: 'zh' }, memories, () => {})
     const backup = JSON.parse(memoryRepository.exportAll())
